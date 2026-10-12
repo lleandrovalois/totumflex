@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="meta-title">Totum Flex | Flex Informática - Soluções Especializadas em TI e Gestão ERP</title>
+  <meta name="description" content="Flex Informática: Soluções personalizadas em TI, automatização de gestão e atendimento especializado para empresas prestadoras de serviço em Belém e em todo o Brasil.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- =======================================================================
+       BARRA DE CONTROLE DO MODO ADMINISTRADOR (STICKY TOP)
+       ======================================================================= -->
+  <aside id="admin-toolbar" aria-label="Controles de Administrador">
+    <div class="admin-left">
+      <div class="admin-badge" id="admin-status-badge">
+        <span class="admin-pulse-dot" id="admin-pulse"></span>
+        <span id="admin-status-text">Modo Visitante (Visualização)</span>
+      </div>
+      <div class="admin-switch-container">
+        <label class="toggle-switch" title="Ativar/Desativar edição em tempo real">
+          <input type="checkbox" id="admin-mode-toggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size: 0.8125rem; color: #cbd5e1;">Ativar Modo Administrador</span>
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button type="button" class="btn-admin" id="btn-open-cms" title="Abrir painel completo de formulários">
+        ⚙️ Painel CMS Completo
+      </button>
+      <button type="button" class="btn-admin btn-admin-primary" id="btn-save-changes" title="Salvar todas as alterações feitas">
+        💾 Salvar Alterações
+      </button>
+      <button type="button" class="btn-admin" id="btn-export-json" title="Baixar arquivo JSON com os dados do site">
+        📥 Exportar JSON
+      </button>
+      <button type="button" class="btn-admin" id="btn-import-trigger" title="Carregar arquivo JSON de configuração">
+        📤 Importar JSON
+      </button>
+      <input type="file" id="file-import-json" accept=".json" style="display: none;">
+      <button type="button" class="btn-admin btn-admin-danger" id="btn-reset-default" title="Restaurar dados originais do site">
+        🔄 Restaurar Padrão
+      </button>
+      <button type="button" class="btn-admin" id="btn-admin-logout" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5;" title="Bloquear painel e sair do modo administrador">
+        🔒 Bloquear / Sair
+      </button>
+    </div>
+  </aside>
+
+  <!-- =======================================================================
+       TOP BAR ANNOUNCEMENT & QUICK CONTACT
+       ======================================================================= -->
+  <div class="top-bar">
+    <div class="container top-bar-content">
+      <div class="top-bar-left">
+        <span id="field-topbar-announcement" data-bind="topBar.announcement">🚀 Nova versão TotumFlex 2026: Gestão Integrada com eSocial, NFS-e e Custeio Operacional.</span>
+        <span class="admin-edit-hint">editável</span>
+      </div>
+      <div class="top-bar-right">
+        <a id="link-topbar-phone" href="tel:5591993519240" class="top-bar-item">
+          <span>📞</span>
+          <span id="field-topbar-phone" data-bind="topBar.phone">(91) 99351-9240</span>
+        </a>
+        <a id="link-topbar-phone2" href="tel:559133434090" class="top-bar-item">
+          <span id="field-topbar-phone2" data-bind="topBar.phoneSecondary">(91) 3343-4090</span>
+        </a>
+        <a id="link-topbar-email" href="mailto:contato@totumflex.com.br" class="top-bar-item">
+          <span>✉️</span>
+          <span id="field-topbar-email" data-bind="topBar.email">contato@totumflex.com.br</span>
+        </a>
+        <button type="button" class="top-bar-item discreet-lock-trigger" id="btn-top-admin-lock" style="background:none; border:none; cursor:pointer;" title="Área Restrita / Painel Administrativo">
+          <span id="top-lock-icon">🔒</span>
+          <span id="top-lock-text" style="font-size: 0.75rem;">Admin</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MAIN NAVIGATION
+       ======================================================================= -->
+  <header class="main-header" id="main-header">
+    <div class="container navbar-container">
+      <a href="#hero" class="brand-logo" id="brand-logo-link">
+        <div class="brand-icon-box">TF</div>
+        <div class="brand-text-box">
+          <div class="brand-title">
+            <span id="field-brand-name" data-bind="navbar.brandName">TOTUM</span><span id="field-brand-highlight" data-bind="navbar.brandHighlight" style="color: var(--accent-cyan);">FLEX</span>
+          </div>
+          <span class="brand-sub" id="field-brand-subtitle" data-bind="navbar.brandSubtitle">Flex Informática</span>
+        </div>
+      </a>
+
+      <nav aria-label="Navegação Principal">
+        <ul class="nav-links" id="nav-links-list">
+          <li><a href="#hero" class="nav-link active">Início</a></li>
+          <li><a href="#sistemas" class="nav-link">Sistemas & Módulos</a></li>
+          <li><a href="#diferenciais" class="nav-link">Diferenciais</a></li>
+          <li><a href="#solucoes" class="nav-link">Soluções</a></li>
+          <li><a href="#empresa" class="nav-link">Sobre Nós</a></li>
+          <li><a href="#contato" class="nav-link">Contato</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-right-actions">
+        <!-- Seletor de Cores Dinâmico -->
+        <div class="color-picker-wrapper" id="color-picker-wrapper">
+          <button type="button" class="theme-toggle-btn" id="color-palette-btn" title="Personalizar Cores do Site">
+            🎨
+          </button>
+          <div class="color-palette-popover" id="color-palette-popover" role="dialog" aria-label="Seletor de Cores">
+            <div class="color-popover-title">
+              <span>Paleta de Cores</span>
+              <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;" id="active-palette-name">Ciano Tech</span>
+            </div>
+
+            <!-- Swatches pré-definidos -->
+            <div class="color-swatches-grid" id="color-swatches-grid">
+              <!-- Renderizado dinamicamente via JS -->
+            </div>
+
+            <!-- Seletor customizado livre -->
+            <div class="custom-color-control">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Ou escolha qualquer cor:</span>
+              <div class="custom-color-inputs">
+                <input type="color" id="custom-color-input" class="input-color-circle" value="#00f0ff" title="Clique para escolher qualquer cor">
+                <input type="text" id="custom-hex-input" class="input-hex-text" value="#00f0ff" maxlength="7" placeholder="#00f0ff">
+              </div>
+              <button type="button" class="btn-apply-color" id="btn-apply-custom-color">Aplicar Cor Personalizada</button>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" title="Alternar tema Claro / Escuro">
+          <span id="theme-icon">☀️</span>
+        </button>
+
+        <!-- Botão Discreto de Acesso do Administrador (Cadeado) -->
+        <button type="button" class="theme-toggle-btn discreet-lock-trigger" id="btn-nav-admin-lock" title="Acesso Administrativo (Login)">
+          <span id="nav-lock-icon">🔒</span>
+        </button>
+
+        <a href="#contato" class="btn-primary nav-cta-btn" id="nav-cta-btn">
+          <span id="field-nav-cta" data-bind="navbar.ctaText">Agendar Demonstração</span>
+        </a>
+        <button type="button" class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir Menu">
+          ☰
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =======================================================================
+       HERO SECTION
+       ======================================================================= -->
+  <section class="hero-section" id="hero">
+    <div class="hero-ambient-glow"></div>
+    <div class="container hero-content">
+      <div class="hero-pill-badge" id="hero-badge-container">
+        <span id="field-hero-badge" data-bind="hero.badge">⚡ TECNOLOGIA B2B DE ALTA PERFORMANCE</span>
+        <span class="admin-edit-hint">editável</span>
+      </div>
+
+      <h1 class="hero-title">
+        <span id="field-hero-title-main" data-bind="hero.titleMain">Automatize a gestão da sua empresa com tecnologia feita para </span>
+        <span class="hero-title-gradient" id="field-hero-title-highlight" data-bind="hero.titleHighlight">o seu negócio.</span>
+        <span class="admin-edit-hint">editável</span>
+      </h1>
+
+      <p class="hero-description" id="field-hero-desc" data-bind="hero.description">
+        Desde 2008 em Belém/PA, desenvolvemos softwares ERP especializados para empresas prestadoras de serviço, locação de mão de obra, custeio operacional e saneamento. Eficiência máxima, zero retrabalho.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="#contato" class="btn-primary" id="btn-hero-primary">
+          <span id="field-hero-cta-primary" data-bind="hero.primaryCta">Solicitar Demonstração Gratuita</span>
+          <span>→</span>
+        </a>
+        <a href="#sistemas" class="btn-secondary" id="btn-hero-secondary">
+          <span id="field-hero-cta-secondary" data-bind="hero.secondaryCta">Explorar Nossos Sistemas</span>
+        </a>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" id="stats-grid-container">
+        <!-- Renderizado dinamicamente pelo JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       SISTEMAS & MÓDULOS (PORTFÓLIO COMPLETO)
+       ======================================================================= -->
+  <section id="sistemas" class="systems-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" id="field-systems-tag" data-bind="systemsSection.tag">PORTFÓLIO DE SISTEMAS</span>
+        <h2 class="section-title" id="field-systems-title" data-bind="systemsSection.title">Soluções integradas sob medida para a sua operação</h2>
+        <p class="section-subtitle" id="field-systems-subtitle" data-bind="systemsSection.subtitle">
+          Chega de planilhas desconexas. Tenha controle financeiro, operacional, de pessoal e fiscal em uma única plataforma robusta.
+        </p>
+      </div>
+
+      <!-- Filtros por Categoria -->
+      <div class="category-filter-bar" id="category-filter-bar">
+        <!-- Renderizado dinamicamente -->
+      </div>
+
+      <!-- Grid dos Sistemas -->
+      <div class="systems-grid" id="systems-grid">
+        <!-- Renderizado dinamicamente via JS (com suporte a adição, exclusão e edição) -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       DIFERENCIAIS / POR QUE A TOTUM FLEX
+       ======================================================================= -->
+  <section id="diferenciais" class="differentials-section" style="background: var(--bg-secondary);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" id="field-diff-tag" data-bind="differentials.tag">POR QUE A TOTUM FLEX?</span>
+        <h2 class="section-title" id="field-diff-title" data-bind="differentials.title">O que torna o TotumFlex único no mercado?</h2>
+        <p class="section-subtitle" id="field-diff-subtitle" data-bind="differentials.subtitle">
+          Diferente de sistemas genéricos de prateleira, nós construímos softwares que se adaptam aos processos reais da sua empresa.
+        </p>
+      </div>
+
+      <div class="differentials-grid" id="differentials-grid">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       FLUXO OPERACIONAL / SOLUÇÕES POR SETOR
+       ======================================================================= -->
+  <section id="solucoes" class="workflow-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" id="field-workflow-tag" data-bind="workflowSection.tag">FLUXO OPERACIONAL</span>
+        <h2 class="section-title" id="field-workflow-title" data-bind="workflowSection.title">Como o TotumFlex conecta todos os setores da sua empresa</h2>
+        <p class="section-subtitle" id="field-workflow-subtitle" data-bind="workflowSection.subtitle">
+          Elimine ilhas de informação. Da proposta comercial ao fechamento financeiro, tudo corre no mesmo trilho.
+        </p>
+      </div>
+
+      <div class="workflow-grid" id="workflow-grid">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       SOBRE A EMPRESA
+       ======================================================================= -->
+  <section id="empresa" class="about-section">
+    <div class="container">
+      <div class="about-grid">
+        <div class="about-left">
+          <span class="section-tag" id="field-about-tag" data-bind="about.tag">SOBRE A FLEX INFORMÁTICA</span>
+          <h2 class="section-title" id="field-about-title" data-bind="about.title">Compromisso com a tecnologia que impulsiona empresas</h2>
+          <p class="about-left-text" id="field-about-history" data-bind="about.history">
+            Fundada em 19 de agosto de 2008 na cidade de Belém do Pará, a Flex Informática consolidou-se como referência no desenvolvimento de softwares corporativos e automação da gestão de empresas de serviços.
+          </p>
+
+          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 16px; color: var(--text-primary);" id="field-pillars-title" data-bind="about.pillarsTitle">Nossos Pilares Fundamentais</h3>
+          <div class="pillars-list" id="pillars-list-container">
+            <!-- Renderizado dinamicamente -->
+          </div>
+        </div>
+
+        <div class="about-right">
+          <div class="mission-vision-box">
+            <div class="mv-card">
+              <div class="mv-title">🎯 Nossa Missão</div>
+              <p class="mv-desc" id="field-about-mission" data-bind="about.mission">
+                Automatizar a gestão de empresas prestadoras de serviço através da personalização de software, fornecendo praticidade e atendimento de alto nível.
+              </p>
+            </div>
+            <div class="mv-card" style="border-left-color: var(--accent-emerald);">
+              <div class="mv-title" style="color: var(--accent-emerald);">🚀 Nossa Visão</div>
+              <p class="mv-desc" id="field-about-vision" data-bind="about.vision">
+                Ser a principal referência na Região Norte e no Brasil em soluções de software ERP para o setor de prestação de serviços.
+              </p>
+            </div>
+            <div class="mv-card" style="border-left-color: var(--accent-amber);">
+              <div class="mv-title" style="color: var(--accent-amber);">📍 Localização Estratégica</div>
+              <p class="mv-desc" id="field-about-location">
+                Sede própria em Belém - Pará, com capacidade de atendimento e suporte técnico para empresas de todo o país.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       CONTATO & AGENDAMENTO DE DEMONSTRAÇÃO
+       ======================================================================= -->
+  <section id="contato" class="contact-section">
+    <div class="container">
+      <div class="contact-card">
+        <div class="contact-info-block">
+          <div>
+            <span class="section-tag" id="field-contact-tag" data-bind="contact.tag">VAMOS CONVERSAR?</span>
+            <h2 class="section-title" id="field-contact-title" data-bind="contact.title" style="font-size: 2rem;">Pronto para modernizar a gestão da sua empresa?</h2>
+            <p class="section-subtitle" id="field-contact-subtitle" data-bind="contact.subtitle" style="font-size: 1rem;">
+              Agende uma demonstração ao vivo com um de nossos especialistas e conheça na prática como o TotumFlex pode multiplicar a sua produtividade.
+            </p>
+          </div>
+
+          <div class="contact-details-list">
+            <div class="contact-detail-item">
+              <div class="contact-detail-icon">📍</div>
+              <div class="contact-detail-content">
+                <span class="contact-detail-label">Endereço</span>
+                <span class="contact-detail-val" id="field-contact-address" data-bind="contact.address">Trav. São Pedro, 261 - Bairro Campina - Belém / PA</span>
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="contact-detail-icon">💬</div>
+              <div class="contact-detail-content">
+                <span class="contact-detail-label">WhatsApp / Suporte</span>
+                <span class="contact-detail-val" id="field-contact-phone" data-bind="contact.phone">(91) 99351-9240</span>
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="contact-detail-icon">📞</div>
+              <div class="contact-detail-content">
+                <span class="contact-detail-label">Telefone Fixo</span>
+                <span class="contact-detail-val" id="field-contact-phonefixed" data-bind="contact.phoneFixed">(91) 3343-4090</span>
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="contact-detail-icon">✉️</div>
+              <div class="contact-detail-content">
+                <span class="contact-detail-label">E-mail Comercial</span>
+                <span class="contact-detail-val" id="field-contact-email" data-bind="contact.email">contato@totumflex.com.br</span>
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="contact-detail-icon">⏰</div>
+              <div class="contact-detail-content">
+                <span class="contact-detail-label">Horário de Atendimento</span>
+                <span class="contact-detail-val" id="field-contact-hours" data-bind="contact.hours">Segunda a Sexta: 08:00 às 18:00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Formulário de Agendamento -->
+        <div class="contact-form-block">
+          <form class="demo-form" id="demo-request-form">
+            <div class="form-group">
+              <label for="form-name" class="form-label">Nome Completo *</label>
+              <input type="text" id="form-name" class="form-input" placeholder="Seu nome ou cargo" required>
+            </div>
+
+            <div class="form-group">
+              <label for="form-company" class="form-label">Nome da Empresa *</label>
+              <input type="text" id="form-company" class="form-input" placeholder="Ex: Alfa Serviços e Facilities" required>
+            </div>
+
+            <div class="form-group">
+              <label for="form-phone" class="form-label">WhatsApp com DDD *</label>
+              <input type="tel" id="form-phone" class="form-input" placeholder="(91) 99999-9999" required>
+            </div>
+
+            <div class="form-group">
+              <label for="form-system-select" class="form-label">Sistema de Principal Interesse</label>
+              <select id="form-system-select" class="form-select">
+                <option value="Todos os Módulos (Visão Completa)">Todos os Módulos ERP (Visão Completa)</option>
+                <option value="Propostas para Locação de Mão de Obra">Propostas para Locação de Mão de Obra</option>
+                <option value="Custeio - Sistema de Gerenciamento ERP">Custeio Operacional / Portuário</option>
+                <option value="Folha de Pagamento Especializada">Folha de Pagamento</option>
+                <option value="TotumFlex eSocial Integrado">TotumFlex eSocial</option>
+                <option value="Escala de Serviços & Postos">Escala de Serviços & Postos</option>
+                <option value="Faturamento - Coleta de Resíduos">Faturamento - Coleta de Resíduos</option>
+                <option value="Faturamento - Prestadoras de Serviços">Faturamento - Prestadoras de Serviços</option>
+                <option value="Gestão Financeira Integrada">Gestão Financeira Integrada</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="form-message" class="form-label">Mensagem ou Particularidades da Operação</label>
+              <textarea id="form-message" class="form-textarea" rows="3" placeholder="Conte brevemente sobre o número de colaboradores ou fluxo atual..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary form-submit-btn" id="btn-submit-form">
+              <span>🚀 Solicitar Demonstração via WhatsApp</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       FOOTER
+       ======================================================================= -->
+  <footer>
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-col">
+          <div class="brand-logo">
+            <div class="brand-icon-box">TF</div>
+            <div class="brand-text-box">
+              <div class="brand-title">TOTUM<span style="color: var(--accent-cyan);">FLEX</span></div>
+              <span class="brand-sub">Flex Informática</span>
+            </div>
+          </div>
+          <p class="footer-brand-desc" id="field-footer-desc">
+            Especialistas em softwares de gestão e automação para empresas prestadoras de serviço desde 2008. Qualidade, responsabilidade e parceria contínua.
+          </p>
+          <div class="footer-social-links">
+            <a href="https://www.instagram.com/totumflex/" target="_blank" rel="noopener" class="social-link-btn" title="Instagram @totumflex">📸</a>
+            <a href="https://www.facebook.com/totumflex" target="_blank" rel="noopener" class="social-link-btn" title="Facebook /totumflex">📘</a>
+            <a href="https://api.whatsapp.com/send?phone=5591993519240" target="_blank" rel="noopener" class="social-link-btn" title="WhatsApp Direto">💬</a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <div class="footer-col-title">Navegação</div>
+          <ul class="footer-nav-list">
+            <li><a href="#hero">Início</a></li>
+            <li><a href="#sistemas">Nossos Sistemas</a></li>
+            <li><a href="#diferenciais">Diferenciais</a></li>
+            <li><a href="#solucoes">Fluxo de Gestão</a></li>
+            <li><a href="#empresa">Sobre a Empresa</a></li>
+            <li><a href="#contato">Fale Conosco</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <div class="footer-col-title">Principais Módulos</div>
+          <ul class="footer-nav-list">
+            <li><a href="#sistemas">Mão de Obra & Postos</a></li>
+            <li><a href="#sistemas">Custeio & Logística</a></li>
+            <li><a href="#sistemas">Folha & eSocial</a></li>
+            <li><a href="#sistemas">Coleta de Resíduos</a></li>
+            <li><a href="#sistemas">Emissão NFS-e & Caixa</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <div class="footer-col-title">Atendimento</div>
+          <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 8px;">
+            📍 Trav. São Pedro, 261 - Campina<br>Belém - PA, CEP 66023-570
+          </p>
+          <p style="font-size: 0.875rem; color: var(--accent-cyan); font-weight: 600; margin-bottom: 6px;">
+            📞 (91) 99351-9240 / (91) 3343-4090
+          </p>
+          <p style="font-size: 0.8125rem; color: var(--text-muted);">
+            Horário: 08:00 às 18:00 (Seg a Sex)
+          </p>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span id="field-footer-copyright" data-bind="footer.copyright">© 2026 Flex Informática Ltda. Todos os direitos reservados.</span>
+        <span id="field-footer-cnpj" data-bind="footer.cnpj">TotumFlex Soluções em TI - Belém - PA</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =======================================================================
+       MODAL: PAINEL CMS COMPLETO (EDITOR ESTRUTURADO)
+       ======================================================================= -->
+  <div class="modal-backdrop" id="cms-modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>⚙️</span> Painel Administrativo de Conteúdo (CMS)
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-cms" aria-label="Fechar">&times;</button>
+      </div>
+
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab-btn active" data-tab="tab-geral">Geral & Topbar</button>
+        <button type="button" class="modal-tab-btn" data-tab="tab-cores">🎨 Cores & Identidade</button>
+        <button type="button" class="modal-tab-btn" data-tab="tab-hero">Hero & Números</button>
+        <button type="button" class="modal-tab-btn" data-tab="tab-sistemas">Gerenciar Sistemas</button>
+        <button type="button" class="modal-tab-btn" data-tab="tab-sobre">Sobre & Diferenciais</button>
+        <button type="button" class="modal-tab-btn" data-tab="tab-contato">Contatos & Rodapé</button>
+      </div>
+
+      <div class="modal-body" id="cms-modal-body">
+        <!-- O conteúdo das abas é gerado ou preenchido dinamicamente via app.js -->
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-modal-cancel">Fechar</button>
+        <button type="button" class="btn-primary" id="btn-modal-save">Salvar Modificações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: DETALHES DO SISTEMA / DEMONSTRAÇÃO
+       ======================================================================= -->
+  <div class="modal-backdrop" id="system-detail-modal" role="dialog" aria-modal="true">
+    <div class="modal-container" style="max-width: 640px;">
+      <div class="modal-header">
+        <div class="modal-title" id="system-detail-title">
+          Detalhes do Sistema
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-system-detail">&times;</button>
+      </div>
+      <div class="modal-body" id="system-detail-body">
+        <!-- Preenchido dinamicamente -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-system-detail-close">Voltar</button>
+        <a href="#contato" class="btn-primary" id="btn-system-detail-request">Solicitar Demonstração deste Módulo</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL DE AUTENTICAÇÃO DO ADMINISTRADOR (LOGIN CADEADO)
+       ======================================================================= -->
+  <div class="modal-backdrop" id="admin-login-modal" role="dialog" aria-modal="true">
+    <div class="modal-container login-modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🔒</span> Painel Administrativo
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-login-modal" aria-label="Fechar">&times;</button>
+      </div>
+
+      <form id="admin-login-form" class="modal-body" style="padding: 28px 24px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 12px;">
+            🔐
+          </div>
+          <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">Autenticação Necessária</h3>
+          <p style="font-size: 0.875rem; color: var(--text-secondary);">Digite suas credenciais de administrador para desbloquear as ferramentas de edição e comandos do site.</p>
+        </div>
+
+        <div id="login-error-alert" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.8125rem; margin-bottom: 16px; text-align: center;">
+          ⚠️ Usuário ou senha incorretos.
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="login-username" class="form-label">Usuário Administrador:</label>
+          <input type="text" id="login-username" class="form-input" placeholder="Ex: admin" required autocomplete="username">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label for="login-password" class="form-label">Senha:</label>
+          <input type="password" id="login-password" class="form-input" placeholder="Digite sua senha" required autocomplete="current-password">
+        </div>
+
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--border-subtle); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px;">
+          💡 <strong>Acesso de Demonstração:</strong><br>
+          Usuário: <code style="color: var(--accent-cyan); font-weight: bold;">admin</code> &nbsp;|&nbsp; Senha: <code style="color: var(--accent-cyan); font-weight: bold;">admin123</code>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-weight: 700; font-size: 0.95rem;">
+          Desbloquear Comandos de Administrador 🔓
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Container de Toasts para feedback visual -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
