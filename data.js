@@ -23,10 +23,25 @@ const DEFAULT_SITE_DATA = {
     email: "contato@totumflex.com.br",
     whatsappLink: "https://api.whatsapp.com/send?phone=5591993519240&text=Ol%C3%A1!%20Estou%20no%20site%20da%20TotumFlex%20e%20gostaria%20de%20solicitar%20uma%20demonstra%C3%A7%C3%A3o."
   },
+  
+  brand: {
+    logoType: "monogram",
+    monogramText: "TF",
+    logoImageUrl: "",
+    logoImageHeight: 40,
+    showName: true,
+    nameFirst: "TOTUM",
+    nameSecond: "FLEX",
+    showTagline: true,
+    tagline: "Flex Informática",
+    footerDesc: "Sistemas inteligentes desenvolvidos sob medida para otimizar operações, reduzir custos e acelerar os resultados da sua empresa."
+  },
   navbar: {
     brandName: "TOTUM",
     brandHighlight: "FLEX",
     brandSubtitle: "Flex Informática",
+    logoImage: "",
+    logoMode: "icon-text",
     links: [
       { id: "nav-home", label: "Início", href: "#hero" },
       { id: "nav-systems", label: "Sistemas & Módulos", href: "#sistemas" },
@@ -64,6 +79,7 @@ const DEFAULT_SITE_DATA = {
     items: [
       {
         id: "sys-propostas",
+        image: "assets/images/sys-propostas.svg",
         category: "operacoes",
         badge: "VENDAS & CONTRATOS",
         icon: "📄",
@@ -80,6 +96,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-custeio",
+        image: "assets/images/sys-custeio.svg",
         category: "operacoes",
         badge: "GESTÃO INTEGRADA",
         icon: "⚓",
@@ -96,6 +113,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-folha",
+        image: "assets/images/sys-folha.svg",
         category: "rh",
         badge: "DEPARTAMENTO PESSOAL",
         icon: "👥",
@@ -112,6 +130,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-esocial",
+        image: "assets/images/sys-esocial.svg",
         category: "rh",
         badge: "CONFORMIDADE LEGAL",
         icon: "🛡️",
@@ -128,6 +147,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-escalas",
+        image: "assets/images/sys-escalas.svg",
         category: "operacoes",
         badge: "FACILITIES & SEGURANÇA",
         icon: "📅",
@@ -144,6 +164,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-residuos",
+        image: "assets/images/sys-residuos.svg",
         category: "operacoes",
         badge: "SANEAMENTO & AMBIENTAL",
         icon: "♻️",
@@ -160,6 +181,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-faturamento",
+        image: "assets/images/sys-faturamento.svg",
         category: "fiscal",
         badge: "EMISSÃO & CONTRATOS",
         icon: "💳",
@@ -176,6 +198,7 @@ const DEFAULT_SITE_DATA = {
       },
       {
         id: "sys-financeiro",
+        image: "assets/images/sys-financeiro.svg",
         category: "fiscal",
         badge: "CONTROLADORIA",
         icon: "📈",

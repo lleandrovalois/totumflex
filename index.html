@@ -15,22 +15,19 @@
   <!-- =======================================================================
        BARRA DE CONTROLE DO MODO ADMINISTRADOR (STICKY TOP)
        ======================================================================= -->
+  
   <aside id="admin-toolbar" aria-label="Controles de Administrador">
     <div class="admin-left">
       <div class="admin-badge" id="admin-status-badge">
         <span class="admin-pulse-dot" id="admin-pulse"></span>
-        <span id="admin-status-text">Modo Visitante (Visualização)</span>
-      </div>
-      <div class="admin-switch-container">
-        <label class="toggle-switch" title="Ativar/Desativar edição em tempo real">
-          <input type="checkbox" id="admin-mode-toggle">
-          <span class="toggle-slider"></span>
-        </label>
-        <span style="font-size: 0.8125rem; color: #cbd5e1;">Ativar Modo Administrador</span>
+        <span id="admin-status-text">PAINEL ADMINISTRATIVO TOTUMFLEX</span>
       </div>
     </div>
 
     <div class="admin-actions">
+      <button type="button" class="btn-admin" id="btn-admin-brand-logo" onclick="openBrandEditorModal()" title="Personalizar Logotipo e Identidade Visual da Marca">
+        🎨 Logotipo da Marca
+      </button>
       <button type="button" class="btn-admin" id="btn-open-cms" title="Abrir painel completo de formulários">
         ⚙️ Painel CMS Completo
       </button>
@@ -53,41 +50,10 @@
     </div>
   </aside>
 
-  <!-- =======================================================================
-       TOP BAR ANNOUNCEMENT & QUICK CONTACT
-       ======================================================================= -->
-  <div class="top-bar">
-    <div class="container top-bar-content">
-      <div class="top-bar-left">
-        <span id="field-topbar-announcement" data-bind="topBar.announcement">🚀 Nova versão TotumFlex 2026: Gestão Integrada com eSocial, NFS-e e Custeio Operacional.</span>
-        <span class="admin-edit-hint">editável</span>
-      </div>
-      <div class="top-bar-right">
-        <a id="link-topbar-phone" href="tel:5591993519240" class="top-bar-item">
-          <span>📞</span>
-          <span id="field-topbar-phone" data-bind="topBar.phone">(91) 99351-9240</span>
-        </a>
-        <a id="link-topbar-phone2" href="tel:559133434090" class="top-bar-item">
-          <span id="field-topbar-phone2" data-bind="topBar.phoneSecondary">(91) 3343-4090</span>
-        </a>
-        <a id="link-topbar-email" href="mailto:contato@totumflex.com.br" class="top-bar-item">
-          <span>✉️</span>
-          <span id="field-topbar-email" data-bind="topBar.email">contato@totumflex.com.br</span>
-        </a>
-        <button type="button" class="top-bar-item discreet-lock-trigger" id="btn-top-admin-lock" style="background:none; border:none; cursor:pointer;" title="Área Restrita / Painel Administrativo">
-          <span id="top-lock-icon">🔒</span>
-          <span id="top-lock-text" style="font-size: 0.75rem;">Admin</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- =======================================================================
-       MAIN NAVIGATION
-       ======================================================================= -->
   <header class="main-header" id="main-header">
     <div class="container navbar-container">
-      <a href="#hero" class="brand-logo" id="brand-logo-link">
+      <div class="brand-logo-wrapper">
+        <a href="#hero" class="brand-logo" id="brand-logo-link">
         <div class="brand-icon-box">TF</div>
         <div class="brand-text-box">
           <div class="brand-title">
@@ -96,6 +62,14 @@
           <span class="brand-sub" id="field-brand-subtitle" data-bind="navbar.brandSubtitle">Flex Informática</span>
         </div>
       </a>
+        <button class="brand-header-edit-btn" id="header-brand-edit-btn" type="button" onclick="openBrandEditorModal()" title="Editar Logotipo e Identidade Visual da Marca">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+          <span>Alterar Logo</span>
+        </button>
+      </div>
 
       <nav aria-label="Navegação Principal">
         <ul class="nav-links" id="nav-links-list">
@@ -510,6 +484,28 @@
   <!-- =======================================================================
        MODAL: DETALHES DO SISTEMA / DEMONSTRAÇÃO
        ======================================================================= -->
+  
+  <!-- =======================================================================
+       MODAL: EDIÇÃO COMPLETA DE CARD DO SISTEMA (COM UPLOAD E TROCA DE IMAGEM)
+       ======================================================================= -->
+  <div class="modal-backdrop" id="edit-system-card-modal" role="dialog" aria-modal="true">
+    <div class="modal-container" style="max-width: 680px;">
+      <div class="modal-header">
+        <div class="modal-title" id="edit-system-modal-title">
+          <span>✏️</span> Editar Módulo do Portfólio
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-edit-system" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body" id="edit-system-modal-body" style="padding: 24px;">
+        <!-- Preenchido dinamicamente via openEditSystemModal(id) -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-cancel-edit-system">Cancelar</button>
+        <button type="button" class="btn-primary" id="btn-save-edit-system">Salvar Alterações do Módulo</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="system-detail-modal" role="dialog" aria-modal="true">
     <div class="modal-container" style="max-width: 640px;">
       <div class="modal-header">
@@ -572,6 +568,251 @@
           Desbloquear Comandos de Administrador 🔓
         </button>
       </form>
+    </div>
+  </div>
+
+  
+  <!-- =======================================================================
+       MODAL: PERSONALIZAÇÃO DA IDENTIDADE VISUAL & LOGOTIPO (PADRÃO DASH SOLUTIONS)
+       ======================================================================= -->
+  <div class="modal-backdrop" id="brand-editor-modal" role="dialog" aria-modal="true" aria-labelledby="brand-editor-title">
+    <div class="modal-container" style="max-width: 820px; max-height: 92vh;">
+      <div class="modal-header" style="position: relative;">
+        <div>
+          <span style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--accent-cyan); display: inline-block; margin-bottom: 4px;">
+            IDENTIDADE VISUAL &amp; MARCA
+          </span>
+          <h3 class="modal-title" id="brand-editor-title" style="margin: 0; font-size: 1.25rem;">
+            Personalização da Logo &amp; Marca
+          </h3>
+          <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; margin-bottom: 0;">
+            Configure a logo da empresa (recomendado: <strong>PNG transparente de 240×60px a 400×100px</strong> ou monograma), nome e slogan corporativo.
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeBrandEditorModal()" aria-label="Fechar editor de identidade">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 24px;">
+        <form id="brand-editor-form" onsubmit="event.preventDefault(); saveBrandFromForm();">
+          <!-- Live Preview Card -->
+          <div class="brand-preview-card" style="margin-bottom: 22px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+              <span style="font-size: 0.75rem; letter-spacing: 1px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">
+                👁️ Pré-visualização em Tempo Real (Cabeçalho &amp; Rodapé)
+              </span>
+              <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">TotumFlex Theme</span>
+            </div>
+            <div class="brand-preview-display" id="modal-brand-preview-display">
+              <!-- Atualizado em tempo real via JS -->
+            </div>
+          </div>
+
+          <!-- Seleção do Modo de Logo: Monograma vs Imagem -->
+          <div style="margin-bottom: 20px;">
+            <label class="form-label" style="margin-bottom: 8px;">Tipo de Logotipo Principal:</label>
+            <div class="brand-type-toggle">
+              <button type="button" class="brand-type-btn active" id="btn-type-monogram" onclick="setBrandType('monogram')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="4"></rect>
+                  <path d="M7 17V7h4a3 3 0 0 1 0 6H7"></path>
+                </svg>
+                <span>Monograma (Iniciais / Símbolo)</span>
+              </button>
+              <button type="button" class="brand-type-btn" id="btn-type-image" onclick="setBrandType('image')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span>Logotipo em Imagem (Upload do Cliente)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Campos do Monograma (Visíveis se logoType === 'monogram') -->
+          <div id="brand-monogram-container" style="background: rgba(6, 10, 18, 0.5); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="brand-monogram-text-input">Iniciais do Símbolo / Monograma (Máximo 3 letras)</label>
+              <input class="form-input" type="text" id="brand-monogram-text-input" maxlength="4" placeholder="ex: TF" value="TF" oninput="updateBrandLivePreview()">
+              <small style="color: var(--text-secondary); font-size: 0.75rem; display: block; margin-top: 6px;">
+                Exibido no emblema de ícone moderno com gradiente ciano e tipografia técnica.
+              </small>
+            </div>
+          </div>
+
+          <!-- Campos da Imagem do Cliente (Visíveis se logoType === 'image') -->
+          <div id="brand-image-container" style="background: rgba(6, 10, 18, 0.5); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 20px; display: none;">
+            
+            <!-- Caixa de Orientação Oficial de Dimensões e Formatos -->
+            <div class="brand-guide-box" id="brand-dimensions-guide">
+              <div class="brand-guide-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <div class="brand-guide-title">Orientações de Dimensões &amp; Proporção para a Logo</div>
+                <span class="brand-guide-badge">Padrão Recomendado</span>
+              </div>
+
+              <div class="brand-guide-grid">
+                <!-- Card 1: Logo Horizontal -->
+                <div class="brand-guide-card highlight">
+                  <div class="brand-card-top">
+                    <span class="brand-card-name">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                      </svg>
+                      Logo Horizontal
+                    </span>
+                    <span class="brand-card-tag">Mais comum</span>
+                  </div>
+                  <div class="brand-guide-dim">240 × 60 px <span>até 400 × 100 px</span></div>
+                  <p>Ícone + nome juntos (proporção ~4:1 ou 3:1). Preenche com perfeição o menu. Recomendamos desmarcar "Exibir Nome da Empresa" abaixo para não duplicar.</p>
+                </div>
+
+                <!-- Card 2: Símbolo / Ícone Quadrado -->
+                <div class="brand-guide-card">
+                  <div class="brand-card-top">
+                    <span class="brand-card-name">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                      </svg>
+                      Ícone / Emblema
+                    </span>
+                    <span class="brand-card-tag">1:1 Quadrado</span>
+                  </div>
+                  <div class="brand-guide-dim">80 × 80 px <span>até 160 × 160 px</span></div>
+                  <p>Apenas o símbolo gráfico. Ideal quando você deseja manter o nome da empresa exibido ao lado com a tipografia oficial do site.</p>
+                </div>
+              </div>
+
+              <div class="brand-guide-tips">
+                <div class="brand-guide-tip-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                  <span><strong>Fundo Transparente:</strong> Utilize preferencialmente <strong>PNG transparente</strong> ou vetor <strong>SVG</strong> para evitar caixas brancas sobre o fundo escuro.</span>
+                </div>
+                <div class="brand-guide-tip-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                  <span><strong>Nitidez Retina (2x):</strong> Para evitar que a imagem fique borrada em celulares e telas de alta densidade, envie com pelo menos <strong>80px a 120px de altura</strong>. O slider abaixo ajusta o tamanho visual final.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modelos Oficiais Prontos -->
+            <div style="margin-bottom: 16px;">
+              <label class="form-label" style="margin-bottom: 8px;">Modelos Oficiais Vetoriais TotumFlex:</label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" class="btn-preset-pill" onclick="selectPresetLogo('assets/images/totumflex-icon.svg', false)">
+                  <img src="assets/images/totumflex-icon.svg" style="height: 18px; width: 18px;" alt="Emblema">
+                  Emblema Oficial (SVG)
+                </button>
+                <button type="button" class="btn-preset-pill" onclick="selectPresetLogo('assets/images/totumflex-logo-full.svg', true)">
+                  <img src="assets/images/totumflex-logo-full.svg" style="height: 18px; max-width: 80px;" alt="Logo Completo">
+                  Logo Completo Horizontal (SVG)
+                </button>
+              </div>
+            </div>
+
+            <label class="form-label">Arquivo de Logotipo (PNG, SVG, JPG, WebP):</label>
+            <div class="brand-dropzone" onclick="document.getElementById('brand-logo-file-picker').click()">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <div style="font-weight: 700; color: #FFFFFF; font-size: 0.95rem;">Clique para Carregar a Logo do seu Computador</div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">Formatos aceitos: PNG (com transparência recomendado), SVG, JPG ou WebP</div>
+              <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.25); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; color: var(--accent-cyan); font-weight: 600; margin-top: 4px;">
+                📐 Dimensões ideais: 240×60px a 400×100px (ou 100×100px para ícone)
+              </div>
+              <input type="file" id="brand-logo-file-picker" accept="image/*" style="display: none;" onchange="handleLogoFileUpload(event)">
+            </div>
+
+            <!-- Feedback Automático das Dimensões Detectadas da Imagem -->
+            <div id="brand-logo-dimensions-feedback" style="display: none;"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 12px; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8125rem;" onclick="document.getElementById('brand-logo-file-picker').click()">
+                📁 Selecionar Arquivo do PC
+              </button>
+              <button type="button" class="btn-secondary" id="btn-remove-logo-img" onclick="clearLogoImage()" style="display: none; color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+                🗑️ Remover Imagem da Logo
+              </button>
+            </div>
+
+            <div class="form-group" style="margin-top: 16px;">
+              <label class="form-label" for="brand-logo-url-input">Ou informe uma URL / Caminho da Imagem da Logo:</label>
+              <input class="form-input" type="text" id="brand-logo-url-input" placeholder="https://exemplo.com/logo.png ou assets/images/..." oninput="updateBrandLivePreview()">
+            </div>
+
+            <div class="form-group" style="margin-top: 12px; margin-bottom: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="form-label" for="brand-logo-height-slider">Altura da Imagem no Menu:</label>
+                <span id="brand-logo-height-val" style="color: var(--accent-cyan); font-weight: 700; font-size: 0.85rem;">40px</span>
+              </div>
+              <input type="range" id="brand-logo-height-slider" min="26" max="64" step="2" value="40" style="width: 100%; cursor: pointer;" oninput="updateBrandLivePreview()">
+              <small style="color: var(--text-secondary); font-size: 0.75rem;">Ajuste a escala visual para que o logo fique proporcional à navegação (recomendado: 36px a 48px).</small>
+            </div>
+          </div>
+
+          <!-- Campos de Nome e Slogan -->
+          <div style="background: rgba(6, 10, 18, 0.5); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
+            <h4 style="font-size: 0.95rem; color: #FFFFFF; margin-bottom: 12px; font-weight: 700;">Textos e Tipografia da Marca</h4>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="brand-name-first-input">Primeira Palavra (Destaque Branco)</label>
+                <input class="form-input" type="text" id="brand-name-first-input" placeholder="ex: TOTUM" value="TOTUM" oninput="updateBrandLivePreview()">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="brand-name-second-input">Segunda Palavra (Destaque Ciano)</label>
+                <input class="form-input" type="text" id="brand-name-second-input" placeholder="ex: FLEX" value="FLEX" oninput="updateBrandLivePreview()">
+              </div>
+            </div>
+
+            <div style="margin-top: 8px; margin-bottom: 12px;">
+              <label class="checkbox-item" for="brand-show-name-chk" style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="brand-show-name-chk" checked onchange="updateBrandLivePreview()">
+                <span style="font-size: 0.8125rem; color: var(--text-secondary);">Exibir Nome da Empresa ao lado do logotipo (desmarque caso o logo em imagem já contenha o nome)</span>
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="form-label" for="brand-tagline-input">Slogan / Subtítulo Corporativo</label>
+              <input class="form-input" type="text" id="brand-tagline-input" placeholder="ex: Flex Informática" value="Flex Informática" oninput="updateBrandLivePreview()">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label class="checkbox-item" for="brand-show-tagline-chk" style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="brand-show-tagline-chk" checked onchange="updateBrandLivePreview()">
+                <span style="font-size: 0.8125rem; color: var(--text-secondary);">Exibir Slogan / Subtítulo abaixo do nome</span>
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="brand-footer-desc-input">Texto Institucional da Marca (Rodapé)</label>
+              <textarea class="form-textarea" id="brand-footer-desc-input" rows="2" style="min-height: 60px;" placeholder="Breve parágrafo sobre a empresa no rodapé do site"></textarea>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="padding: 0; background: transparent; border: none; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px;">
+            <button type="button" class="btn-secondary" onclick="resetBrandToDefault()" style="color: var(--text-secondary); font-size: 0.8125rem;">
+              ↺ Restaurar Padrão (TotumFlex)
+            </button>
+            <div style="display: flex; gap: 10px;">
+              <button type="button" class="btn-secondary" onclick="closeBrandEditorModal()">Cancelar</button>
+              <button type="submit" class="btn-primary">Salvar Identidade Visual</button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 

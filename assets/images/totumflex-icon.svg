@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="tfGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff" />
+      <stop offset="50%" stop-color="#0077b6" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <filter id="tfGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="90" height="90" x="5" y="5" rx="20" fill="#0f172a" stroke="url(#tfGrad)" stroke-width="3" />
+  <!-- Stylized T -->
+  <path d="M 24 30 L 76 30 L 76 40 L 56 40 L 56 72 L 44 72 L 44 40 L 24 40 Z" fill="url(#tfGrad)" filter="url(#tfGlow)" />
+  <!-- Futuristic F accent slash -->
+  <path d="M 56 48 L 72 48 L 72 56 L 56 56 Z" fill="#00f0ff" />
+  <!-- Glowing node -->
+  <circle cx="72" cy="30" r="4" fill="#00f0ff" />
+</svg>

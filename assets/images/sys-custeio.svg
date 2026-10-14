@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#080e1e" />
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="450" fill="url(#bgGrad)" />
+
+  <!-- Subtle grid lines -->
+  <g stroke="#334155" stroke-opacity="0.15" stroke-width="1">
+    <line x1="0" y1="50" x2="800" y2="50" />
+    <line x1="0" y1="100" x2="800" y2="100" />
+    <line x1="0" y1="150" x2="800" y2="150" />
+    <line x1="0" y1="200" x2="800" y2="200" />
+    <line x1="0" y1="250" x2="800" y2="250" />
+    <line x1="0" y1="300" x2="800" y2="300" />
+    <line x1="0" y1="350" x2="800" y2="350" />
+    <line x1="0" y1="400" x2="800" y2="400" />
+    <line x1="100" y1="0" x2="100" y2="450" />
+    <line x1="200" y1="0" x2="200" y2="450" />
+    <line x1="300" y1="0" x2="300" y2="450" />
+    <line x1="400" y1="0" x2="400" y2="450" />
+    <line x1="500" y1="0" x2="500" y2="450" />
+    <line x1="600" y1="0" x2="600" y2="450" />
+    <line x1="700" y1="0" x2="700" y2="450" />
+  </g>
+
+  <!-- Ambient glowing orb -->
+  <circle cx="700" cy="80" r="140" fill="#00f0ff" opacity="0.08" filter="url(#glow)" />
+  <circle cx="100" cy="380" r="120" fill="#3b82f6" opacity="0.06" filter="url(#glow)" />
+
+  <!-- App Window Container -->
+  <rect x="25" y="20" width="750" height="410" rx="14" fill="#0f172a" fill-opacity="0.85" stroke="#334155" stroke-width="1.5" />
+
+  <!-- App Header / Topbar -->
+  <path d="M 25 34 A 14 14 0 0 1 39 20 L 761 20 A 14 14 0 0 1 775 34 L 775 64 L 25 64 Z" fill="#1e293b" fill-opacity="0.9" />
+  <line x1="25" y1="64" x2="775" y2="64" stroke="#334155" stroke-width="1" />
+
+  <!-- Window controls -->
+  <circle cx="48" cy="42" r="5" fill="#ef4444" opacity="0.9" />
+  <circle cx="64" cy="42" r="5" fill="#f59e0b" opacity="0.9" />
+  <circle cx="80" cy="42" r="5" fill="#10b981" opacity="0.9" />
+
+  <!-- Window Title -->
+  <text x="105" y="46" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" fill="#94a3b8">
+    TOTUM<tspan fill="#00f0ff">FLEX</tspan> ERP • Custeio - Sistema de Gerenciamento ERP
+  </text>
+
+  <!-- Badge top right -->
+  <rect x="635" y="32" width="125" height="22" rx="11" fill="#00f0ff" fill-opacity="0.15" stroke="#00f0ff" stroke-opacity="0.4" />
+  <text x="697" y="47" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">
+    GESTÃO INTEGRADA
+  </text>
+
+  <!-- Left Mini Sidebar -->
+  <rect x="25" y="64" width="55" height="366" fill="#0b1120" fill-opacity="0.7" />
+  <line x1="80" y1="64" x2="80" y2="430" stroke="#334155" stroke-width="1" />
+  
+  <text x="52" y="100" font-size="18" text-anchor="middle">📊</text>
+  <text x="52" y="145" font-size="18" text-anchor="middle">⚓</text>
+  <text x="52" y="190" font-size="18" text-anchor="middle">⚙️</text>
+  <text x="52" y="235" font-size="18" text-anchor="middle">📁</text>
+  <text x="52" y="390" font-size="16" text-anchor="middle">🔒</text>
+
+  <!-- Content Area -->
+  <g transform="translate(95, 75)">
+    <!-- Subtitle / Breadcrumb -->
+    <text x="5" y="16" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" fill="#f8fafc">
+      Custeio - Sistema de Gerenciamento ERP
+    </text>
+    <text x="5" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" fill="#64748b">
+      Integração de Faturamento PDA / FDA e Rentabilidade por Embarcação
+    </text>
+
+    <!-- Content SVG injection -->
+    
+    <rect x="5" y="48" width="200" height="60" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="18" y="70" font-size="10" font-family="sans-serif" fill="#94a3b8">Operações Ativas</text>
+    <text x="18" y="94" font-size="18" font-weight="700" font-family="sans-serif" fill="#818cf8">12 Atracações</text>
+
+    <rect x="220" y="48" width="200" height="60" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="233" y="70" font-size="10" font-family="sans-serif" fill="#94a3b8">Adiantamentos (PDA)</text>
+    <text x="233" y="94" font-size="18" font-weight="700" font-family="sans-serif" fill="#38bdf8">R$ 840.200,00</text>
+
+    <rect x="435" y="48" width="225" height="60" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="448" y="70" font-size="10" font-family="sans-serif" fill="#94a3b8">Fechamento Final (FDA)</text>
+    <text x="448" y="94" font-size="18" font-weight="800" font-family="sans-serif" fill="#10b981">R$ 982.450,12</text>
+
+    <!-- Pipeline / Workflow cards -->
+    <rect x="5" y="122" width="655" height="195" rx="8" fill="#141e33" stroke="#1e293b" stroke-width="1" />
+    <text x="25" y="150" font-size="12" font-weight="700" font-family="sans-serif" fill="#cbd5e1">FLUXO OPERACIONAL PORTUÁRIO &amp; LOGÍSTICO</text>
+    
+    <g transform="translate(20, 170)">
+      <rect x="0" y="0" width="130" height="70" rx="6" fill="#1e293b" stroke="#818cf8" stroke-width="1" />
+      <text x="65" y="28" font-size="11" font-weight="700" font-family="sans-serif" fill="#f8fafc" text-anchor="middle">1. Pré-Cálculo</text>
+      <text x="65" y="48" font-size="10" font-family="sans-serif" fill="#94a3b8" text-anchor="middle">PDA Estimado</text>
+
+      <path d="M 135 35 L 165 35" stroke="#475569" stroke-width="2" marker-end="url(#arrow)" />
+
+      <rect x="170" y="0" width="130" height="70" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1" />
+      <text x="235" y="28" font-size="11" font-weight="700" font-family="sans-serif" fill="#f8fafc" text-anchor="middle">2. Operação</text>
+      <text x="235" y="48" font-size="10" font-family="sans-serif" fill="#94a3b8" text-anchor="middle">Registro Diário</text>
+
+      <rect x="340" y="0" width="130" height="70" rx="6" fill="#1e293b" stroke="#fbbf24" stroke-width="1" />
+      <text x="405" y="28" font-size="11" font-weight="700" font-family="sans-serif" fill="#f8fafc" text-anchor="middle">3. Prestação</text>
+      <text x="405" y="48" font-size="10" font-family="sans-serif" fill="#94a3b8" text-anchor="middle">Despesas Comprovadas</text>
+
+      <rect x="510" y="0" width="125" height="70" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" />
+      <text x="572" y="28" font-size="11" font-weight="700" font-family="sans-serif" fill="#f8fafc" text-anchor="middle">4. FDA Final</text>
+      <text x="572" y="48" font-size="10" font-family="sans-serif" fill="#34d399" text-anchor="middle">Faturamento &amp; NF</text>
+    </g>
+
+    <text x="25" y="290" font-size="11" font-family="sans-serif" fill="#94a3b8">
+      • Taxas portuárias, praticagem, amarrações e faturamento consolidado em moeda estrangeira ou BRL.
+    </text>
+  
+  </g>
+</svg>

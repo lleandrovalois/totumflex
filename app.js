@@ -19,6 +19,41 @@
   let isAdminAuthenticated = false;
   let currentCategory = 'all';
 
+  const SYSTEM_IMAGE_PRESETS = [
+    { id: 'propostas', label: 'Propostas & Encargos', url: 'assets/images/sys-propostas.svg' },
+    { id: 'custeio', label: 'Custeio & Operações', url: 'assets/images/sys-custeio.svg' },
+    { id: 'folha', label: 'Folha & Holerites DP', url: 'assets/images/sys-folha.svg' },
+    { id: 'esocial', label: 'eSocial & Conformidade', url: 'assets/images/sys-esocial.svg' },
+    { id: 'escalas', label: 'Escalas 12x36 & Postos', url: 'assets/images/sys-escalas.svg' },
+    { id: 'residuos', label: 'Resíduos & MTR', url: 'assets/images/sys-residuos.svg' },
+    { id: 'faturamento', label: 'Faturamento & NFS-e', url: 'assets/images/sys-faturamento.svg' },
+    { id: 'financeiro', label: 'Financeiro & DRE Caixa', url: 'assets/images/sys-financeiro.svg' },
+    { id: 'analytics', label: 'Dashboard Analytics', url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80' },
+    { id: 'corp-planning', label: 'Gestão Corporativa', url: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80' },
+    { id: 'logistics', label: 'Operações & Logística', url: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80' },
+    { id: 'charts', label: 'Contabilidade & Gráficos', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80' }
+  ];
+
+  function getSystemImage(item) {
+    if (item && item.image && item.image.trim()) {
+      return item.image;
+    }
+    const map = {
+      'sys-propostas': 'assets/images/sys-propostas.svg',
+      'sys-custeio': 'assets/images/sys-custeio.svg',
+      'sys-folha': 'assets/images/sys-folha.svg',
+      'sys-esocial': 'assets/images/sys-esocial.svg',
+      'sys-escalas': 'assets/images/sys-escalas.svg',
+      'sys-residuos': 'assets/images/sys-residuos.svg',
+      'sys-faturamento': 'assets/images/sys-faturamento.svg',
+      'sys-financeiro': 'assets/images/sys-financeiro.svg'
+    };
+    return (item && map[item.id]) || 'assets/images/sys-propostas.svg';
+  }
+
+  let currentEditingSystemId = null;
+
+
   // ==========================================================================
   // INICIALIZAÇÃO E CARREGAMENTO DE DADOS
   // ==========================================================================
@@ -51,15 +86,106 @@
     applyColorScheme(activeColor.primary, activeColor.secondary, activeColor.preset, false);
 
     // Verificar se já havia sessão autenticada do administrador
-    const savedAuth = sessionStorage.getItem(AUTH_KEY) === 'true';
-    setAdminAuthenticated(savedAuth, false);
+    // ========================================================================
+    // REGRA DE NEGÓCIO: O site SEMPRE abre em modo visitante comum.
+    // O modo administrador SÓ é ativado se o usuário clicar no cadeado e logar.
+    // ========================================================================
+    sessionStorage.removeItem(AUTH_KEY);
+    setAdminAuthenticated(false, false);
+  }
+
+  // ==========================================================================
+  // PERSISTÊNCIA MULTI-DISPOSITIVO & SINCRONIZAÇÃO EM TEMPO REAL
+  // (Padrão Dash Solutions: /api/save-content e content.json)
+  // ==========================================================================
+
+  let isSyncingFromServer = false;
+
+  async function saveContentToServer(data) {
+    try {
+      const payload = {
+        ...data,
+        updatedAt: data.updatedAt || new Date().toISOString()
+      };
+      const res = await fetch('/api/save-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        console.log('[CMS] Conteúdo salvo com sucesso no servidor (content.json)');
+      } else {
+        console.warn('[CMS] Servidor retornou código não-200:', res.status);
+      }
+    } catch (err) {
+      console.warn('[CMS] Erro ao sincronizar conteúdo com o servidor:', err.message);
+    }
+  }
+
+  async function syncContentFromServer() {
+    try {
+      const res = await fetch('/content.json?v=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const serverContent = await res.json();
+        if (serverContent && typeof serverContent === 'object' && Object.keys(serverContent).length > 0) {
+          const savedRaw = localStorage.getItem(STORAGE_KEY);
+          let localContent = null;
+          if (savedRaw) {
+            try { localContent = JSON.parse(savedRaw); } catch (e) { }
+          }
+
+          // Se houver conteúdo local com timestamp mais recente que o servidor, preserva e envia para o servidor!
+          if (localContent && localContent.updatedAt && serverContent.updatedAt) {
+            const serverTime = new Date(serverContent.updatedAt).getTime();
+            const localTime = new Date(localContent.updatedAt).getTime();
+            if (localTime > serverTime) {
+              console.log('[CMS] Conteúdo local é mais recente. Sincronizando com o servidor...');
+              await saveContentToServer(localContent);
+              return;
+            }
+          }
+
+          isSyncingFromServer = true;
+          siteData = {
+            ...DEFAULT_SITE_DATA,
+            ...serverContent
+          };
+
+          // Garante que o objeto brand exista e esteja sincronizado
+          if (!siteData.brand) {
+            siteData.brand = {
+              logoType: (siteData.navbar && siteData.navbar.logoImage) ? 'image' : 'monogram',
+              monogramText: 'TF',
+              logoImageUrl: (siteData.navbar && siteData.navbar.logoImage) || '',
+              logoImageHeight: (siteData.navbar && siteData.navbar.logoHeight) || 40,
+              showName: (siteData.navbar && siteData.navbar.logoMode === 'full') ? false : true,
+              nameFirst: (siteData.navbar && siteData.navbar.brandName) || 'TOTUM',
+              nameSecond: (siteData.navbar && siteData.navbar.brandHighlight) || 'FLEX',
+              showTagline: true,
+              tagline: (siteData.navbar && siteData.navbar.brandSubtitle) || 'Flex Informática',
+              footerDesc: (siteData.footer && siteData.footer.text) || ''
+            };
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+          isSyncingFromServer = false;
+
+          renderAll();
+          renderBrandLogo();
+          console.log('[CMS] Conteúdo geral sincronizado com sucesso do servidor (content.json)');
+        }
+      }
+    } catch (err) {
+      console.log('[CMS] Sem conexão com content.json no servidor, operando com dados locais:', err.message);
+    }
   }
 
   function saveToStorage(notify = true) {
     try {
+      siteData.updatedAt = new Date().toISOString();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+      saveContentToServer(siteData);
       if (notify) {
-        showToast('Alterações salvas com sucesso no seu navegador!', 'success');
+        showToast('Alterações salvas e sincronizadas com sucesso!', 'success');
       }
     } catch (e) {
       console.error('Erro ao salvar no LocalStorage:', e);
@@ -239,19 +365,15 @@
     isAdminAuthenticated = auth;
     const body = document.body;
     const navLockIcon = document.getElementById('nav-lock-icon');
-    const topLockIcon = document.getElementById('top-lock-icon');
-    const topLockText = document.getElementById('top-lock-text');
 
     if (auth) {
       body.classList.add('admin-authenticated');
       sessionStorage.setItem(AUTH_KEY, 'true');
 
       if (navLockIcon) navLockIcon.textContent = '🔓';
-      if (topLockIcon) topLockIcon.textContent = '🔓';
-      if (topLockText) topLockText.textContent = 'Admin Ativo';
 
-      // Ativa a edição
-      setAdminMode(true);
+      // Ativa a edição sem toast redundante
+      setAdminMode(true, false);
 
       if (notify) {
         showToast('🔓 Autenticado com sucesso! Comandos de administrador liberados.', 'success');
@@ -261,11 +383,9 @@
       sessionStorage.removeItem(AUTH_KEY);
 
       if (navLockIcon) navLockIcon.textContent = '🔒';
-      if (topLockIcon) topLockIcon.textContent = '🔒';
-      if (topLockText) topLockText.textContent = 'Admin';
 
-      // Desativa a edição
-      setAdminMode(false);
+      // Desativa a edição sem toast redundante
+      setAdminMode(false, false);
 
       if (notify) {
         showToast('🔒 Sessão administrativa bloqueada. Modo visitante ativo.', 'info');
@@ -275,7 +395,7 @@
 
   function openAdminLoginModal() {
     if (isAdminAuthenticated) {
-      const wantLogout = confirm('Você já está autenticado como Administrador.\n\nDeseja BLOQUEAR / SAIR agora?\n(Clique em Cancelar para continuar editando)');
+      const wantLogout = confirm('Você está no Modo Administrador.\n\nDeseja BLOQUEAR / SAIR e retornar ao modo visitante público?');
       if (wantLogout) {
         setAdminAuthenticated(false, true);
       }
@@ -332,15 +452,18 @@
     }
   }
 
-  function setAdminMode(active) {
+    function setAdminMode(active, notify = false) {
     isAdminMode = active;
     const body = document.body;
     const badge = document.getElementById('admin-status-badge');
     const badgeText = document.getElementById('admin-status-text');
     const toggle = document.getElementById('admin-mode-toggle');
+    const colorPickerWrapper = document.getElementById('color-picker-wrapper');
+    const colorPopover = document.getElementById('color-palette-popover');
 
     if (active) {
       body.classList.add('admin-mode-active');
+      if (colorPickerWrapper) colorPickerWrapper.style.display = 'block';
       if (badge) {
         badge.style.background = 'rgba(16, 185, 129, 0.15)';
         badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
@@ -349,9 +472,11 @@
       if (badgeText) badgeText.textContent = 'Modo Administrador (Edição em Tempo Real)';
       if (toggle) toggle.checked = true;
       enableInlineEditing();
-      showToast('Modo Administrador ativado! Clique em qualquer texto para editar diretamente.', 'info');
+      if (notify) showToast('Modo Administrador ativado! Clique em qualquer texto para editar diretamente.', 'info');
     } else {
       body.classList.remove('admin-mode-active');
+      if (colorPickerWrapper) colorPickerWrapper.style.display = 'none';
+      if (colorPopover) colorPopover.classList.remove('open');
       if (badge) {
         badge.style.background = 'rgba(245, 158, 11, 0.12)';
         badge.style.borderColor = 'rgba(245, 158, 11, 0.6)';
@@ -360,10 +485,11 @@
       if (badgeText) badgeText.textContent = 'Modo Visitante (Visualização)';
       if (toggle) toggle.checked = false;
       disableInlineEditing();
-      showToast('Modo de visualização ativado.', 'info');
+      if (notify) showToast('Modo de visualização ativado.', 'info');
     }
 
     renderSystems(); // Re-renderiza para mostrar/ocultar botões de edição nos cards
+    renderBrandLogo(); // Atualiza selo de edição na logomarca
   }
 
   function enableInlineEditing() {
@@ -398,10 +524,412 @@
   }
 
   // ==========================================================================
-  // RENDERIZAÇÃO DA PÁGINA COM DADOS DO STATE
+  
+  // ==========================================================================
+  // IDENTIDADE VISUAL DA MARCA & LOGOTIPO (PADRÃO DASH SOLUTIONS)
   // ==========================================================================
 
+  let currentEditingBrandType = 'monogram';
+
+  function getActiveBrand() {
+    if (!siteData.brand) {
+      siteData.brand = {
+        logoType: (siteData.navbar && siteData.navbar.logoImage) ? 'image' : 'monogram',
+        monogramText: 'TF',
+        logoImageUrl: (siteData.navbar && siteData.navbar.logoImage) || '',
+        logoImageHeight: (siteData.navbar && siteData.navbar.logoHeight) || 40,
+        showName: (siteData.navbar && siteData.navbar.logoMode === 'full') ? false : true,
+        nameFirst: (siteData.navbar && siteData.navbar.brandName) || 'TOTUM',
+        nameSecond: (siteData.navbar && siteData.navbar.brandHighlight) || 'FLEX',
+        showTagline: true,
+        tagline: (siteData.navbar && siteData.navbar.brandSubtitle) || 'Flex Informática',
+        footerDesc: (siteData.footer && siteData.footer.text) || ''
+      };
+    }
+    return siteData.brand;
+  }
+
+  function buildBrandLogoHTML(brand, options = {}) {
+    const isHeader = !!options.isHeader;
+    const isPreview = !!options.isPreview;
+    const isFooter = !!options.isFooter;
+
+    let logoGraphic = '';
+    if (brand.logoType === 'image' && brand.logoImageUrl) {
+      const height = Math.min(Math.max(brand.logoImageHeight || 40, 24), 70);
+      logoGraphic = `
+        <img src="${brand.logoImageUrl}" alt="${brand.nameFirst || ''} ${brand.nameSecond || ''}" 
+             style="height: ${height}px; max-width: 260px; object-fit: contain; border-radius: 4px; display: block;">
+      `;
+    } else {
+      const symbolText = brand.monogramText || 'TF';
+      logoGraphic = `
+        <div class="brand-icon-box" style="display:flex; align-items:center; justify-content:center;">${symbolText}</div>
+      `;
+    }
+
+    let textMarkup = '';
+    if (brand.showName || brand.logoType === 'monogram') {
+      const nameFirst = brand.nameFirst || 'TOTUM';
+      const nameSecond = brand.nameSecond || 'FLEX';
+      const tagline = brand.tagline || 'Flex Informática';
+      const showTagline = brand.showTagline !== false;
+
+      textMarkup = `
+        <div class="brand-text-box">
+          <div class="brand-title">
+            <span id="${isHeader ? 'field-brand-name' : (isFooter ? 'field-footer-brand-name' : '')}" data-bind="navbar.brandName">${nameFirst}</span><span id="${isHeader ? 'field-brand-highlight' : (isFooter ? 'field-footer-brand-highlight' : '')}" data-bind="navbar.brandHighlight" style="color: var(--accent-cyan);">${nameSecond}</span>
+          </div>
+          ${showTagline ? `<span class="brand-sub" id="${isHeader ? 'field-brand-subtitle' : (isFooter ? 'field-footer-brand-sub' : '')}" data-bind="navbar.brandSubtitle">${tagline}</span>` : ''}
+        </div>
+      `;
+    }
+
+    return `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        ${logoGraphic}
+        ${textMarkup}
+      </div>
+    `;
+  }
+
+  function renderBrandLogo() {
+    const brand = getActiveBrand();
+
+    const headerLogo = document.getElementById('brand-logo-link');
+    if (headerLogo) {
+      headerLogo.innerHTML = buildBrandLogoHTML(brand, { isHeader: true });
+    }
+
+    const footerLogo = document.getElementById('footer-brand-logo');
+    if (footerLogo) {
+      footerLogo.innerHTML = buildBrandLogoHTML(brand, { isFooter: true });
+    }
+
+    const footerDesc = document.getElementById('footer-brand-desc');
+    if (footerDesc && brand.footerDesc) {
+      footerDesc.textContent = brand.footerDesc;
+    }
+  }
+
+  function openBrandEditorModal() {
+    populateBrandInputs();
+    updateBrandLivePreview();
+    const modal = document.getElementById('brand-editor-modal') || document.getElementById('brand-logo-modal');
+    if (modal) {
+      modal.classList.add('open');
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  window.openBrandEditorModal = openBrandEditorModal;
+  window.openBrandLogoModal = openBrandEditorModal;
+
+  function closeBrandEditorModal() {
+    const modal = document.getElementById('brand-editor-modal') || document.getElementById('brand-logo-modal');
+    if (modal) {
+      modal.classList.remove('open');
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  }
+  window.closeBrandEditorModal = closeBrandEditorModal;
+  window.closeBrandLogoModal = closeBrandEditorModal;
+
+  function setBrandType(type) {
+    currentEditingBrandType = type;
+    const btnMono = document.getElementById('btn-type-monogram');
+    const btnImg = document.getElementById('btn-type-image');
+    const monoContainer = document.getElementById('brand-monogram-container');
+    const imgContainer = document.getElementById('brand-image-container');
+
+    if (type === 'image') {
+      if (btnMono) btnMono.classList.remove('active');
+      if (btnImg) btnImg.classList.add('active');
+      if (monoContainer) monoContainer.style.display = 'none';
+      if (imgContainer) imgContainer.style.display = 'block';
+    } else {
+      if (btnMono) btnMono.classList.add('active');
+      if (btnImg) btnImg.classList.remove('active');
+      if (monoContainer) monoContainer.style.display = 'block';
+      if (imgContainer) imgContainer.style.display = 'none';
+    }
+    updateBrandLivePreview();
+  };
+
+  window.populateBrandInputs = function () {
+    const brand = getActiveBrand();
+    currentEditingBrandType = brand.logoType || 'monogram';
+    setBrandType(currentEditingBrandType);
+
+    const monoInput = document.getElementById('brand-monogram-text-input');
+    if (monoInput) monoInput.value = brand.monogramText || 'TF';
+
+    const urlInput = document.getElementById('brand-logo-url-input');
+    if (urlInput) urlInput.value = brand.logoImageUrl || '';
+
+    const removeBtn = document.getElementById('btn-remove-logo-img');
+    if (removeBtn) removeBtn.style.display = brand.logoImageUrl ? 'inline-flex' : 'none';
+
+    const slider = document.getElementById('brand-logo-height-slider');
+    const sliderVal = document.getElementById('brand-logo-height-val');
+    if (slider) slider.value = brand.logoImageHeight || 40;
+    if (sliderVal) sliderVal.textContent = `${brand.logoImageHeight || 40}px`;
+
+    const nameFirstInput = document.getElementById('brand-name-first-input');
+    if (nameFirstInput) nameFirstInput.value = brand.nameFirst || 'TOTUM';
+
+    const nameSecondInput = document.getElementById('brand-name-second-input');
+    if (nameSecondInput) nameSecondInput.value = brand.nameSecond || 'FLEX';
+
+    const showNameChk = document.getElementById('brand-show-name-chk');
+    if (showNameChk) showNameChk.checked = brand.showName !== false;
+
+    const taglineInput = document.getElementById('brand-tagline-input');
+    if (taglineInput) taglineInput.value = brand.tagline || 'Flex Informática';
+
+    const showTaglineChk = document.getElementById('brand-show-tagline-chk');
+    if (showTaglineChk) showTaglineChk.checked = brand.showTagline !== false;
+
+    const footerDescInput = document.getElementById('brand-footer-desc-input');
+    if (footerDescInput) footerDescInput.value = brand.footerDesc || '';
+
+    if (brand.logoImageUrl && currentEditingBrandType === 'image') {
+      inspectAndDisplayLogoDimensions(brand.logoImageUrl);
+    } else {
+      inspectAndDisplayLogoDimensions('');
+    }
+  };
+
+  window.inspectAndDisplayLogoDimensions = function (url) {
+    const feedbackEl = document.getElementById('brand-logo-dimensions-feedback');
+    if (!feedbackEl) return;
+
+    if (!url) {
+      feedbackEl.style.display = 'none';
+      feedbackEl.innerHTML = '';
+      return;
+    }
+
+    const testImg = new Image();
+    testImg.onload = function () {
+      const w = testImg.naturalWidth;
+      const h = testImg.naturalHeight;
+      const isSvg = url.includes('image/svg') || url.toLowerCase().endsWith('.svg');
+
+      feedbackEl.style.display = 'flex';
+      if (w === 0 || h === 0) {
+        feedbackEl.style.display = 'none';
+        return;
+      }
+
+      const ratioNum = w / h;
+      const ratioStr = ratioNum.toFixed(1);
+      let ratioLabel = 'Horizontal';
+      if (Math.abs(w - h) <= Math.max(w, h) * 0.1) {
+        ratioLabel = 'Quadrado (1:1)';
+      } else if (w < h) {
+        ratioLabel = 'Vertical';
+      } else if (ratioNum >= 2.5) {
+        ratioLabel = 'Horizontal Panorâmico';
+      }
+
+      let isGood = true;
+      let statusText = 'Excelente proporção';
+      let tip = 'Dimensões adequadas para o cabeçalho.';
+
+      if (isSvg) {
+        isGood = true;
+        statusText = 'Vetor SVG';
+        tip = 'Formato vetorial com nitidez infinita em qualquer resolução.';
+      } else if (h < 50) {
+        isGood = false;
+        statusText = 'Atenção: Altura baixa';
+        tip = `A imagem possui apenas ${h}px de altura. Pode perder nitidez em telas Retina. Recomendamos mínimo de 80px a 100px.`;
+      } else if (w < h) {
+        isGood = false;
+        statusText = 'Orientação Vertical';
+        tip = 'Imagens verticais podem ficar pequenas no cabeçalho horizontal. Recomendamos logos horizontais (~3:1 ou 4:1) ou símbolo quadrado.';
+      } else if (ratioNum >= 2 && ratioNum <= 5 && h >= 60) {
+        isGood = true;
+        statusText = 'Dimensões Ideais';
+        tip = 'Proporção retangular perfeita para o menu de navegação.';
+      } else if (Math.abs(w - h) <= Math.max(w, h) * 0.1 && h >= 60) {
+        isGood = true;
+        statusText = 'Ícone Quadrado Ideal';
+        tip = 'Símbolo quadrado perfeito para ser exibido junto ao nome da empresa.';
+      } else {
+        isGood = true;
+        statusText = 'Compatível';
+        tip = 'A imagem será ajustada proporcionalmente pelo controle de altura abaixo.';
+      }
+
+      feedbackEl.className = `brand-dim-feedback ${isGood ? 'good' : 'warning'}`;
+      feedbackEl.innerHTML = `
+        <div class="brand-dim-feedback-info">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <div>
+            <div><strong>Dimensões Detectadas:</strong> ${w} × ${h} px <span style="color:var(--text-secondary); font-size:0.75rem;">(${ratioLabel} &bull; Proporção ${ratioStr}:1)</span></div>
+            <div style="font-size:0.74rem; color:var(--text-secondary); margin-top:2px;">${tip}</div>
+          </div>
+        </div>
+        <span class="brand-dim-feedback-status">${statusText}</span>
+      `;
+    };
+
+    testImg.onerror = function () {
+      feedbackEl.style.display = 'none';
+    };
+
+    testImg.src = url;
+  };
+
+  window.updateBrandLivePreview = function () {
+    const brandObj = {
+      logoType: currentEditingBrandType,
+      monogramText: document.getElementById('brand-monogram-text-input')?.value.trim() || 'TF',
+      logoImageUrl: document.getElementById('brand-logo-url-input')?.value.trim() || '',
+      logoImageHeight: parseInt(document.getElementById('brand-logo-height-slider')?.value || '40', 10),
+      showName: document.getElementById('brand-show-name-chk') ? document.getElementById('brand-show-name-chk').checked : true,
+      nameFirst: document.getElementById('brand-name-first-input')?.value.trim() || 'TOTUM',
+      nameSecond: document.getElementById('brand-name-second-input')?.value.trim() || 'FLEX',
+      showTagline: document.getElementById('brand-show-tagline-chk') ? document.getElementById('brand-show-tagline-chk').checked : true,
+      tagline: document.getElementById('brand-tagline-input')?.value.trim() || 'Flex Informática',
+      footerDesc: document.getElementById('brand-footer-desc-input')?.value.trim() || ''
+    };
+
+    const sliderVal = document.getElementById('brand-logo-height-val');
+    if (sliderVal) sliderVal.textContent = `${brandObj.logoImageHeight}px`;
+
+    const removeBtn = document.getElementById('btn-remove-logo-img');
+    if (removeBtn) removeBtn.style.display = brandObj.logoImageUrl ? 'inline-flex' : 'none';
+
+    if (currentEditingBrandType === 'image' && brandObj.logoImageUrl) {
+      inspectAndDisplayLogoDimensions(brandObj.logoImageUrl);
+    } else {
+      inspectAndDisplayLogoDimensions('');
+    }
+
+    const previewHtml = buildBrandLogoHTML(brandObj, { isPreview: true });
+    const modalPreview = document.getElementById('modal-brand-preview-display');
+    if (modalPreview) modalPreview.innerHTML = previewHtml;
+  };
+
+  window.handleLogoFileUpload = function (event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Por favor, selecione um arquivo de imagem válido (PNG, SVG, JPG, WebP).', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const dataUrl = e.target.result;
+      const urlInput = document.getElementById('brand-logo-url-input');
+      if (urlInput) urlInput.value = dataUrl;
+      setBrandType('image');
+      updateBrandLivePreview();
+      inspectAndDisplayLogoDimensions(dataUrl);
+      showToast('Logotipo carregado com sucesso! Verifique as dimensões e clique em "Salvar".', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.clearLogoImage = function () {
+    const urlInput = document.getElementById('brand-logo-url-input');
+    if (urlInput) urlInput.value = '';
+    const filePicker = document.getElementById('brand-logo-file-picker');
+    if (filePicker) filePicker.value = '';
+    setBrandType('monogram');
+    updateBrandLivePreview();
+    inspectAndDisplayLogoDimensions('');
+    showToast('Imagem removida. Modo monograma ativado.', 'info');
+  };
+
+  window.selectPresetLogo = function (path, isFull) {
+    const urlInput = document.getElementById('brand-logo-url-input');
+    if (urlInput) urlInput.value = path;
+    const showNameChk = document.getElementById('brand-show-name-chk');
+    if (showNameChk) showNameChk.checked = !isFull;
+    setBrandType('image');
+    updateBrandLivePreview();
+    inspectAndDisplayLogoDimensions(path);
+    showToast('Modelo vetorial oficial aplicado à pré-visualização!', 'info');
+  };
+
+  function saveBrandFromForm() {
+    const brandObj = {
+      logoType: currentEditingBrandType,
+      monogramText: document.getElementById('brand-monogram-text-input')?.value.trim() || 'TF',
+      logoImageUrl: document.getElementById('brand-logo-url-input')?.value.trim() || '',
+      logoImageHeight: parseInt(document.getElementById('brand-logo-height-slider')?.value || '40', 10),
+      showName: document.getElementById('brand-show-name-chk') ? document.getElementById('brand-show-name-chk').checked : true,
+      nameFirst: document.getElementById('brand-name-first-input')?.value.trim() || 'TOTUM',
+      nameSecond: document.getElementById('brand-name-second-input')?.value.trim() || 'FLEX',
+      showTagline: document.getElementById('brand-show-tagline-chk') ? document.getElementById('brand-show-tagline-chk').checked : true,
+      tagline: document.getElementById('brand-tagline-input')?.value.trim() || 'Flex Informática',
+      footerDesc: document.getElementById('brand-footer-desc-input')?.value.trim() || ''
+    };
+
+    siteData.brand = brandObj;
+
+    // Sincronizar com navbar para manter total compatibilidade com o restante do app
+    if (!siteData.navbar) siteData.navbar = {};
+    siteData.navbar.brandName = brandObj.nameFirst;
+    siteData.navbar.brandHighlight = brandObj.nameSecond;
+    siteData.navbar.brandSubtitle = brandObj.tagline;
+    siteData.navbar.logoImage = brandObj.logoImageUrl;
+    siteData.navbar.logoHeight = brandObj.logoImageHeight;
+    siteData.navbar.logoMode = brandObj.logoType === 'image' ? (brandObj.showName ? 'icon-text' : 'full') : 'default';
+
+    saveToStorage(true);
+    renderBrandLogo();
+    renderStaticBinds();
+    closeBrandEditorModal();
+    showToast('Identidade visual e logotipo atualizados com sucesso!', 'success');
+  }
+  window.saveBrandFromForm = saveBrandFromForm;
+  const saveBrandLogo = saveBrandFromForm;
+  window.saveBrandLogo = saveBrandFromForm;
+
+  window.resetBrandToDefault = function () {
+    if (confirm('Deseja restaurar a identidade visual e o logotipo para o padrão original do TotumFlex?')) {
+      siteData.brand = {
+        logoType: 'monogram',
+        monogramText: 'TF',
+        logoImageUrl: '',
+        logoImageHeight: 40,
+        showName: true,
+        nameFirst: 'TOTUM',
+        nameSecond: 'FLEX',
+        showTagline: true,
+        tagline: 'Flex Informática',
+        footerDesc: ''
+      };
+      if (siteData.navbar) {
+        siteData.navbar.logoImage = '';
+        siteData.navbar.logoMode = 'default';
+        siteData.navbar.brandName = 'TOTUM';
+        siteData.navbar.brandHighlight = 'FLEX';
+        siteData.navbar.brandSubtitle = 'Flex Informática';
+      }
+      saveToStorage(true);
+      populateBrandInputs();
+      updateBrandLivePreview();
+      renderBrandLogo();
+      renderStaticBinds();
+      showToast('Identidade visual restaurada para o padrão.', 'info');
+    }
+  };
+
   function renderStaticBinds() {
+    renderBrandLogo();
     const editables = document.querySelectorAll('[data-bind]');
     editables.forEach(el => {
       const path = el.getAttribute('data-bind');
@@ -488,7 +1016,7 @@
           </ul>
 
           <div style="margin-top: auto;">
-            <button type="button" class="card-action-btn" onclick="window.totumApp.openSystemDetail('${item.id}')">
+            <button type="button" class="card-action-btn" data-system-id="${item.id}" onclick="if(window.totumApp && window.totumApp.openSystemDetail){window.totumApp.openSystemDetail('${item.id}');}else if(window.openSystemDetail){window.openSystemDetail('${item.id}');}">
               <span>Ver detalhes completos</span>
               <span>→</span>
             </button>
@@ -565,6 +1093,7 @@
   }
 
   function renderAll() {
+    renderBrandLogo();
     renderStaticBinds();
     renderStats();
     renderCategories();
@@ -624,10 +1153,249 @@
   }
 
   function editSystemModal(id) {
+    openEditSystemModal(id);
+  }
+
+  function openEditSystemModal(id) {
     const item = siteData.systemsSection.items.find(s => s.id === id);
     if (!item) return;
 
-    openCMSModal('tab-sistemas');
+    // Se o modal de detalhes estiver aberto, fechar para focar na edição
+    closeSystemDetail();
+
+    currentEditingSystemId = id;
+    const modal = document.getElementById('edit-system-card-modal');
+    const titleEl = document.getElementById('edit-system-modal-title');
+    const bodyEl = document.getElementById('edit-system-modal-body');
+
+    if (!modal || !bodyEl) return;
+
+    const currentImg = getSystemImage(item);
+    titleEl.innerHTML = `<span>✏️</span> Editar Módulo: ${item.title}`;
+
+    bodyEl.innerHTML = `
+      <!-- SEÇÃO DA IMAGEM DO CARD E DO MODAL -->
+      <div class="edit-card-section">
+        <div class="edit-card-section-title">
+          <span>🖼️</span> Imagem do Módulo (Exibida entre os textos no Modal de Detalhes)
+        </div>
+
+        <div class="edit-img-preview-box">
+          <img id="edit-sys-img-preview" src="${currentImg}" alt="Visualização da Imagem">
+        </div>
+
+        <div class="edit-img-controls-row">
+          <label class="btn-upload-file">
+            📁 Escolher Imagem do Computador
+            <input type="file" id="edit-sys-file-input" accept="image/*" style="display: none;">
+          </label>
+
+          <button type="button" class="btn-admin" id="btn-reset-sys-img" title="Restaurar ilustração padrão deste sistema">
+            ↺ Restaurar Imagem Padrão
+          </button>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Ou insira uma URL da Imagem:</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="edit-sys-img-url" class="form-input" value="${item.image || currentImg}" placeholder="https://exemplo.com/imagem.jpg ou assets/images/...">
+            <button type="button" class="btn-secondary" id="btn-apply-sys-url" style="white-space: nowrap;">Aplicar URL</button>
+          </div>
+        </div>
+
+        <div class="preset-gallery-title">🎨 Modelos Prontos de Telas &amp; Dashboards:</div>
+        <div class="preset-gallery-grid">
+          ${SYSTEM_IMAGE_PRESETS.map(pr => `
+            <button type="button" class="preset-thumb-btn ${pr.url === currentImg ? 'active' : ''}" data-url="${pr.url}" title="${pr.label}">
+              <img src="${pr.url}" alt="${pr.label}">
+              <span>${pr.label}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- SEÇÃO DE TEXTOS DO CARD E DO MODAL -->
+      <div class="edit-card-section">
+        <div class="edit-card-section-title">
+          <span>📝</span> Textos e Identificação do Módulo
+        </div>
+
+        <div style="display: grid; grid-template-columns: 80px 1fr 180px; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label class="form-label">Ícone:</label>
+            <input type="text" id="edit-sys-icon" class="form-input" value="${item.icon || '💻'}">
+          </div>
+          <div>
+            <label class="form-label">Título do Módulo:</label>
+            <input type="text" id="edit-sys-title" class="form-input" value="${item.title}">
+          </div>
+          <div>
+            <label class="form-label">Tag / Badge:</label>
+            <input type="text" id="edit-sys-badge" class="form-input" value="${item.badge}">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label class="form-label">Categoria do Sistema:</label>
+            <select id="edit-sys-category" class="form-select">
+              <option value="operacoes" ${item.category === 'operacoes' ? 'selected' : ''}>Operações &amp; Logística</option>
+              <option value="rh" ${item.category === 'rh' ? 'selected' : ''}>RH &amp; Pessoal</option>
+              <option value="fiscal" ${item.category === 'fiscal' ? 'selected' : ''}>Fiscal &amp; Financeiro</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Cor do Badge:</label>
+            <select id="edit-sys-badge-color" class="form-select">
+              <option value="cyan" ${item.badgeColor === 'cyan' ? 'selected' : ''}>Ciano</option>
+              <option value="emerald" ${item.badgeColor === 'emerald' ? 'selected' : ''}>Esmeralda (Verde)</option>
+              <option value="purple" ${item.badgeColor === 'purple' ? 'selected' : ''}>Roxo / Violeta</option>
+              <option value="amber" ${item.badgeColor === 'amber' ? 'selected' : ''}>Âmbar (Dourado)</option>
+              <option value="indigo" ${item.badgeColor === 'indigo' ? 'selected' : ''}>Índigo</option>
+              <option value="blue" ${item.badgeColor === 'blue' ? 'selected' : ''}>Azul Royal</option>
+              <option value="rose" ${item.badgeColor === 'rose' ? 'selected' : ''}>Rose</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Resumo do Card (exibido na página inicial):</label>
+          <textarea id="edit-sys-summary" class="form-textarea" rows="2">${item.summary}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Descrição Completa (Texto do Modal - Bloco 1):</label>
+          <textarea id="edit-sys-description" class="form-textarea" rows="3">${item.description || item.summary}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Destaques e Recursos Principais (Texto do Modal - Bloco 2, um por linha):</label>
+          <textarea id="edit-sys-features" class="form-textarea" rows="4">${(item.features || []).join('\n')}</textarea>
+        </div>
+      </div>
+    `;
+
+    // Conectar eventos do modal de edição
+    const previewImg = document.getElementById('edit-sys-img-preview');
+    const urlInput = document.getElementById('edit-sys-img-url');
+    const fileInput = document.getElementById('edit-sys-file-input');
+    const btnApplyUrl = document.getElementById('btn-apply-sys-url');
+    const btnResetImg = document.getElementById('btn-reset-sys-img');
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          if (!file.type.startsWith('image/')) {
+            showToast('Por favor selecione um arquivo de imagem válido (PNG, JPG, SVG, WebP)', 'warning');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            const dataUrl = evt.target.result;
+            if (previewImg) previewImg.src = dataUrl;
+            if (urlInput) urlInput.value = dataUrl;
+            showToast('Imagem carregada com sucesso!', 'success');
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    if (btnApplyUrl && urlInput) {
+      btnApplyUrl.addEventListener('click', () => {
+        const val = urlInput.value.trim();
+        if (val && previewImg) {
+          previewImg.src = val;
+          showToast('URL da imagem aplicada ao preview!', 'info');
+        }
+      });
+    }
+
+    if (btnResetImg) {
+      btnResetImg.addEventListener('click', () => {
+        const defaultImg = getSystemImage({ id: item.id });
+        if (previewImg) previewImg.src = defaultImg;
+        if (urlInput) urlInput.value = defaultImg;
+        showToast('Imagem restaurada para a ilustração padrão!', 'info');
+      });
+    }
+
+    // Presets
+    const presetBtns = bodyEl.querySelectorAll('.preset-thumb-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.getAttribute('data-url');
+        if (url) {
+          if (previewImg) previewImg.src = url;
+          if (urlInput) urlInput.value = url;
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        }
+      });
+    });
+
+    modal.classList.add('open');
+  }
+
+  function closeEditSystemModal() {
+    const modal = document.getElementById('edit-system-card-modal');
+    if (modal) modal.classList.remove('open');
+    currentEditingSystemId = null;
+  }
+  window.openEditSystemModal = openEditSystemModal;
+  window.editSystemModal = editSystemModal;
+  window.closeEditSystemModal = closeEditSystemModal;
+  window.saveEditedSystem = saveEditedSystem;
+  window.deleteSystem = deleteSystem;
+  window.addNewSystemPrompt = addNewSystemPrompt;
+
+  function saveEditedSystem() {
+    if (!currentEditingSystemId) return;
+    const item = siteData.systemsSection.items.find(s => s.id === currentEditingSystemId);
+    if (!item) return;
+
+    const titleEl = document.getElementById('edit-sys-title');
+    const title = titleEl ? titleEl.value.trim() : '';
+    if (!title) {
+      showToast('O título do módulo é obrigatório.', 'warning');
+      return;
+    }
+
+    const iconEl = document.getElementById('edit-sys-icon');
+    const badgeEl = document.getElementById('edit-sys-badge');
+    const categoryEl = document.getElementById('edit-sys-category');
+    const badgeColorEl = document.getElementById('edit-sys-badge-color');
+    const summaryEl = document.getElementById('edit-sys-summary');
+    const descriptionEl = document.getElementById('edit-sys-description');
+    const featuresEl = document.getElementById('edit-sys-features');
+    const imgUrlEl = document.getElementById('edit-sys-img-url');
+
+    item.title = title;
+    if (iconEl && iconEl.value.trim()) item.icon = iconEl.value.trim();
+    if (badgeEl && badgeEl.value.trim()) item.badge = badgeEl.value.trim();
+    if (categoryEl && categoryEl.value) item.category = categoryEl.value;
+    if (badgeColorEl && badgeColorEl.value) item.badgeColor = badgeColorEl.value;
+    if (summaryEl) item.summary = summaryEl.value.trim();
+    if (descriptionEl) item.description = descriptionEl.value.trim();
+    if (imgUrlEl && imgUrlEl.value.trim()) item.image = imgUrlEl.value.trim();
+
+    if (featuresEl) {
+      const lines = featuresEl.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length > 0) item.features = lines;
+    }
+
+    saveToStorage(true);
+    renderSystems();
+
+    // Se o modal de detalhes estiver aberto, atualiza-o imediatamente
+    const detailModal = document.getElementById('system-detail-modal');
+    if (detailModal && detailModal.classList.contains('open')) {
+      openSystemDetail(item.id);
+    }
+
+    closeEditSystemModal();
+    showToast(`Módulo "${item.title}" atualizado com sucesso!`, 'success');
   }
 
   function openSystemDetail(id) {
@@ -639,16 +1407,34 @@
     const bodyEl = document.getElementById('system-detail-body');
     const requestBtn = document.getElementById('btn-system-detail-request');
 
+    const currentImg = getSystemImage(item);
+
     titleEl.innerHTML = `<span style="font-size: 1.5rem; margin-right: 8px;">${item.icon || '💻'}</span> ${item.title}`;
     
     bodyEl.innerHTML = `
       <div style="margin-bottom: 16px;">
         <span class="card-badge" style="font-size: 0.75rem;">${item.badge}</span>
       </div>
-      <p style="font-size: 1rem; color: var(--text-primary); line-height: 1.7; margin-bottom: 24px;">
+
+      <!-- BLOCO DE TEXTO 1: Descrição Detalhada do Sistema -->
+      <p style="font-size: 1rem; color: var(--text-primary); line-height: 1.7; margin-bottom: 20px;">
         ${item.description || item.summary}
       </p>
-      <h4 style="font-size: 0.9375rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 12px;">
+
+      <!-- IMAGEM ENTRE OS DOIS BLOCOS DE TEXTO -->
+      <div class="system-detail-image-box">
+        <img src="${currentImg}" alt="${item.title}" class="system-detail-img" id="detail-img-${item.id}">
+        ${isAdminMode ? `
+          <div class="system-detail-img-admin-bar">
+            <button type="button" class="btn-admin-edit-img" onclick="window.totumApp.openEditSystemModal('${item.id}')" title="Alterar imagem e textos deste módulo">
+              📷 Alterar Imagem / Editar Card
+            </button>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- BLOCO DE TEXTO 2: Destaques e Recursos Principais -->
+      <h4 style="font-size: 0.9375rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.05em;">
         Destaques e Recursos Principais:
       </h4>
       <ul style="list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
@@ -668,7 +1454,6 @@
         closeSystemDetail();
         const select = document.getElementById('form-system-select');
         if (select) {
-          // Tenta selecionar ou adiciona como valor
           select.value = item.title;
         }
         document.getElementById('contato').scrollIntoView({ behavior: 'smooth' });
@@ -682,6 +1467,8 @@
     const modal = document.getElementById('system-detail-modal');
     if (modal) modal.classList.remove('open');
   }
+  window.openSystemDetail = openSystemDetail;
+  window.closeSystemDetail = closeSystemDetail;
 
   // ==========================================================================
   // MODAL DO PAINEL CMS COMPLETO (EDITOR FORMULÁRIO)
@@ -746,6 +1533,34 @@
     } else if (activeTabId === 'tab-cores') {
       const currentPrimary = (siteData.colorScheme && siteData.colorScheme.primary) || '#00f0ff';
       contentHtml = `
+        
+        <!-- SEÇÃO DE LOGOMARCA NO CMS -->
+        <div style="background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <span style="font-weight: 700; color: #fff; font-size: 1rem;">🏷️ Logomarca da Marca &amp; Cabeçalho</span>
+              <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px;">Altere o logotipo visual exibido no topo e rodapé do site</p>
+            </div>
+            <button type="button" class="btn-primary" style="padding: 8px 16px; font-size: 0.8125rem;" onclick="window.totumApp.openBrandLogoModal()">
+              🎨 Abrir Configurador Completo de Logo
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); flex-wrap: wrap;">
+            <div style="min-width: 50px;">
+              <div style="font-size: 0.6875rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Logo Atual:</div>
+              <div id="cms-brand-logo-preview" style="height: 38px; display: flex; align-items: center;">
+                ${(siteData.navbar && siteData.navbar.logoImage) 
+                  ? `<img src="${siteData.navbar.logoImage}" style="max-height: 38px; max-width: 120px; object-fit: contain;">` 
+                  : `<div class="brand-icon-box" style="width:36px; height:36px; font-size: 1rem;">TF</div>`}
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+              <label class="form-label" style="margin-bottom: 4px;">URL da Imagem da Logomarca:</label>
+              <input type="text" id="cms-brand-logo-input" class="form-input" value="${(siteData.navbar && siteData.navbar.logoImage) || ''}" placeholder="https://... ou assets/images/...">
+            </div>
+          </div>
+        </div>
+
         <h3 style="margin-bottom: 8px; font-size: 1.15rem; color: var(--accent-cyan);">🎨 Personalização de Cores & Identidade Visual</h3>
         <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 24px;">
           Selecione a paleta de cores corporativa do TotumFlex. As alterações afetam imediatamente os botões, títulos em destaque, brilhos, cards e elementos visuais de todo o site.
@@ -839,10 +1654,19 @@
                 <label class="form-label">Resumo do Card:</label>
                 <textarea id="cms-sys-${idx}-summary" class="form-textarea" rows="2">${sys.summary}</textarea>
               </div>
-              <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                <button type="button" class="btn-admin btn-admin-danger" onclick="window.totumApp.deleteSystem('${sys.id}')">
-                  Excluir Módulo
-                </button>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <img src="${getSystemImage(sys)}" alt="${sys.title}" style="width: 54px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-active); background: #0f172a;">
+                  <span style="font-size: 0.8125rem; color: var(--text-secondary);">Imagem do Modal configurada</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-admin btn-admin-primary" style="font-size: 0.8125rem; padding: 6px 12px;" onclick="window.totumApp.openEditSystemModal('${sys.id}')">
+                    🖼️ Alterar Imagem &amp; Detalhes
+                  </button>
+                  <button type="button" class="btn-admin btn-admin-danger" style="font-size: 0.8125rem; padding: 6px 12px;" onclick="window.totumApp.deleteSystem('${sys.id}')">
+                    Excluir
+                  </button>
+                </div>
               </div>
             </div>
           `).join('')}
@@ -953,6 +1777,17 @@
     });
 
     // Sobre
+    
+    const cmsLogoInput = document.getElementById('cms-brand-logo-input');
+    if (cmsLogoInput) {
+      if (!siteData.navbar) siteData.navbar = {};
+      siteData.navbar.logoImage = cmsLogoInput.value.trim();
+      if (siteData.navbar.logoImage && !siteData.navbar.logoMode) {
+        siteData.navbar.logoMode = 'icon-text';
+      }
+      renderBrandLogo();
+    }
+
     const aboutTitle = document.getElementById('cms-about-title');
     if (aboutTitle) siteData.about.title = aboutTitle.value;
 
@@ -1138,6 +1973,139 @@ ${message ? `Observações adicionais: ${message}` : ''}`;
     if (btnCloseDetail) btnCloseDetail.addEventListener('click', closeSystemDetail);
 
     const btnCloseDetail2 = document.getElementById('btn-system-detail-close');
+
+    // Modal de Edição de Card do Sistema
+    
+    // Logomarca e Modal de Personalização (Padrão Dash Solutions)
+    const brandLogoLink = document.getElementById('brand-logo-link');
+    if (brandLogoLink) {
+      brandLogoLink.addEventListener('click', (e) => {
+        if (isAdminMode) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.openBrandEditorModal();
+        }
+      });
+    }
+
+    const headerBrandEditBtn = document.getElementById('header-brand-edit-btn');
+    if (headerBrandEditBtn) {
+      headerBrandEditBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.openBrandEditorModal();
+      });
+    }
+
+    const btnAdminBrandLogo = document.getElementById('btn-admin-brand-logo');
+    if (btnAdminBrandLogo) {
+      btnAdminBrandLogo.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.openBrandEditorModal();
+      });
+    }
+
+    const brandEditorModal = document.getElementById('brand-editor-modal') || document.getElementById('brand-logo-modal');
+    if (brandEditorModal) {
+      brandEditorModal.addEventListener('click', (e) => {
+        if (e.target === brandEditorModal) {
+          window.closeBrandEditorModal();
+        }
+      });
+    }
+
+    const btnCloseBrandLogo = document.getElementById('btn-close-brand-logo');
+    const btnCancelBrandLogo = document.getElementById('btn-cancel-brand-logo');
+    const btnSaveBrandLogo = document.getElementById('btn-save-brand-logo');
+    const brandLogoModal = document.getElementById('brand-logo-modal');
+
+    if (btnCloseBrandLogo) btnCloseBrandLogo.addEventListener('click', closeBrandEditorModal);
+    if (btnCancelBrandLogo) btnCancelBrandLogo.addEventListener('click', closeBrandEditorModal);
+    if (btnSaveBrandLogo) btnSaveBrandLogo.addEventListener('click', saveBrandFromForm);
+    if (brandLogoModal) {
+      brandLogoModal.addEventListener('click', (e) => {
+        if (e.target === brandLogoModal) closeBrandEditorModal();
+      });
+    }
+
+    // Delegação de clique direta no grid de sistemas (Ver detalhes, Editar, Excluir, Adicionar)
+    const systemsGrid = document.getElementById('systems-grid');
+    if (systemsGrid) {
+      systemsGrid.addEventListener('click', (e) => {
+        // 1. Ver Detalhes Completos
+        const detailBtn = e.target.closest('.card-action-btn');
+        if (detailBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const card = detailBtn.closest('.system-card');
+          const systemId = detailBtn.getAttribute('data-system-id') || card?.getAttribute('data-system-id');
+          if (systemId) openSystemDetail(systemId);
+          return;
+        }
+
+        // 2. Editar Card
+        const editBtn = e.target.closest('.admin-card-controls .btn-admin-primary, .btn-edit-card');
+        if (editBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const card = editBtn.closest('.system-card');
+          const systemId = editBtn.getAttribute('data-system-id') || card?.getAttribute('data-system-id');
+          if (systemId) openEditSystemModal(systemId);
+          return;
+        }
+
+        // 3. Excluir Card
+        const deleteBtn = e.target.closest('.admin-card-controls .btn-admin-danger, .btn-delete-card');
+        if (deleteBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const card = deleteBtn.closest('.system-card');
+          const systemId = deleteBtn.getAttribute('data-system-id') || card?.getAttribute('data-system-id');
+          if (systemId) deleteSystem(systemId);
+          return;
+        }
+
+        // 4. Adicionar Card
+        const addCard = e.target.closest('.system-card-add');
+        if (addCard) {
+          e.preventDefault();
+          e.stopPropagation();
+          addNewSystemPrompt();
+          return;
+        }
+      });
+    }
+
+    // Toggle do menu mobile hambúrguer
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const navLinksEl = document.getElementById('nav-links-list') || document.querySelector('.nav-links');
+    if (mobileBtn && navLinksEl) {
+      mobileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navLinksEl.classList.toggle('mobile-open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!navLinksEl.contains(e.target) && e.target !== mobileBtn) {
+          navLinksEl.classList.remove('mobile-open');
+        }
+      });
+    }
+
+    const btnCloseEditSys = document.getElementById('btn-close-edit-system');
+    const btnCancelEditSys = document.getElementById('btn-cancel-edit-system');
+    const btnSaveEditSys = document.getElementById('btn-save-edit-system');
+    const editSysModal = document.getElementById('edit-system-card-modal');
+
+    if (btnCloseEditSys) btnCloseEditSys.addEventListener('click', closeEditSystemModal);
+    if (btnCancelEditSys) btnCancelEditSys.addEventListener('click', closeEditSystemModal);
+    if (btnSaveEditSys) btnSaveEditSys.addEventListener('click', saveEditedSystem);
+    if (editSysModal) {
+      editSysModal.addEventListener('click', (e) => {
+        if (e.target === editSysModal) closeEditSystemModal();
+      });
+    }
+
     if (btnCloseDetail2) btnCloseDetail2.addEventListener('click', closeSystemDetail);
 
     // Fechar modais ao clicar no backdrop
@@ -1250,15 +2218,43 @@ ${message ? `Observações adicionais: ${message}` : ''}`;
 
   document.addEventListener('DOMContentLoaded', () => {
     loadInitialData();
+    syncContentFromServer();
     renderAll();
     bindEvents();
+
+    // Sincronização multi-dispositivo em segundo plano (quando a aba ganha foco ou a cada 15s)
+    window.addEventListener('focus', () => {
+      if (!isAdminMode) syncContentFromServer();
+    });
+
+    setInterval(() => {
+      const isAnyModalOpen = !!document.querySelector('.modal-backdrop.open, .modal-backdrop.active');
+      if (!isAdminMode && !isAnyModalOpen) {
+        syncContentFromServer();
+      }
+    }, 15000);
+
 
     // Expõe API para chamadas globais (onclick nos botões dinâmicos)
     window.totumApp = {
       openSystemDetail,
+      closeSystemDetail,
+      openEditSystemModal,
+      closeEditSystemModal,
+      saveEditedSystem,
       editSystemModal,
       deleteSystem,
       addNewSystemPrompt,
+      openBrandEditorModal,
+      closeBrandEditorModal,
+      openBrandLogoModal: openBrandEditorModal,
+      closeBrandLogoModal: closeBrandEditorModal,
+      setBrandType,
+      saveBrandFromForm,
+      saveBrandLogo: saveBrandFromForm,
+      saveContentToServer,
+      syncContentFromServer,
+      renderBrandLogo,
       setAdminMode,
       setAdminAuthenticated,
       openAdminLoginModal,
