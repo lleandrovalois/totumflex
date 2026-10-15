@@ -61,9 +61,13 @@
   function loadInitialData() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
+      // Se houver dados corrompidos por encoding antigo (ex: Ãƒ), descarta e usa os dados limpos
+      if (stored && !stored.includes('Ãƒ') && !stored.includes('Ã‚') && !stored.includes('Ã°')) {
         siteData = JSON.parse(stored);
       } else {
+        if (stored) {
+          localStorage.removeItem(STORAGE_KEY);
+        }
         siteData = JSON.parse(JSON.stringify(DEFAULT_SITE_DATA));
       }
     } catch (e) {
@@ -101,6 +105,68 @@
 
   let isSyncingFromServer = false;
 
+  // ==========================================================================
+  // OTIMIZAÇÃO E COMPRESSÃO DE IMAGENS CLIENT-SIDE (CANVAS)
+  // Garante carregamento instantâneo e evita estouro de cota do LocalStorage (5MB)
+  // ==========================================================================
+  function compressImageFile(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject(new Error('Nenhum arquivo fornecido'));
+
+      // Vetores SVG mantêm-se nativos
+      if (file.type === 'image/svg+xml') {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          const w = img.naturalWidth || img.width;
+          const h = img.naturalHeight || img.height;
+
+          // Se a imagem já for leve e proporcional, mantém original
+          if (w <= maxWidth && h <= maxHeight && file.size < 250000) {
+            resolve(e.target.result);
+            return;
+          }
+
+          // Redimensionar mantendo proporção de aspecto
+          const ratio = Math.min(maxWidth / w, maxHeight / h, 1);
+          const targetW = Math.max(1, Math.round(w * ratio));
+          const targetH = Math.max(1, Math.round(h * ratio));
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+
+          let mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          let dataUrl = canvas.toDataURL(mime, quality);
+
+          // Se for PNG e tiver ficado maior que 400KB, converte para JPEG otimizado
+          if (mime === 'image/png' && dataUrl.length > 400000) {
+            dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          }
+
+          resolve(dataUrl);
+        };
+        img.onerror = () => resolve(e.target.result);
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  window.compressImageFile = compressImageFile;
+
   async function saveContentToServer(data) {
     try {
       const payload = {
@@ -114,13 +180,18 @@
       });
       if (res.ok) {
         console.log('[CMS] Conteúdo salvo com sucesso no servidor (content.json)');
+        return true;
       } else {
         console.warn('[CMS] Servidor retornou código não-200:', res.status);
+        return false;
       }
     } catch (err) {
       console.warn('[CMS] Erro ao sincronizar conteúdo com o servidor:', err.message);
+      return false;
     }
   }
+
+  let lastKnownServerMtime = 0;
 
   async function syncContentFromServer() {
     try {
@@ -128,23 +199,6 @@
       if (res.ok) {
         const serverContent = await res.json();
         if (serverContent && typeof serverContent === 'object' && Object.keys(serverContent).length > 0) {
-          const savedRaw = localStorage.getItem(STORAGE_KEY);
-          let localContent = null;
-          if (savedRaw) {
-            try { localContent = JSON.parse(savedRaw); } catch (e) { }
-          }
-
-          // Se houver conteúdo local com timestamp mais recente que o servidor, preserva e envia para o servidor!
-          if (localContent && localContent.updatedAt && serverContent.updatedAt) {
-            const serverTime = new Date(serverContent.updatedAt).getTime();
-            const localTime = new Date(localContent.updatedAt).getTime();
-            if (localTime > serverTime) {
-              console.log('[CMS] Conteúdo local é mais recente. Sincronizando com o servidor...');
-              await saveContentToServer(localContent);
-              return;
-            }
-          }
-
           isSyncingFromServer = true;
           siteData = {
             ...DEFAULT_SITE_DATA,
@@ -166,31 +220,103 @@
               footerDesc: (siteData.footer && siteData.footer.text) || ''
             };
           }
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+
+          // Sincronizar Tema e Cores globais do servidor
+          if (serverContent.theme) {
+            applyTheme(serverContent.theme);
+          }
+          if (serverContent.colorScheme && serverContent.colorScheme.primary) {
+            applyColorScheme(
+              serverContent.colorScheme.primary,
+              serverContent.colorScheme.secondary,
+              serverContent.colorScheme.preset || 'custom',
+              false
+            );
+          }
+          
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+          } catch (storageErr) {
+            console.warn('[CMS] LocalStorage não pôde salvar todo o cache devido ao limite de 5MB, mas os dados estão carregados do servidor.', storageErr);
+          }
           isSyncingFromServer = false;
 
           renderAll();
           renderBrandLogo();
-          console.log('[CMS] Conteúdo geral sincronizado com sucesso do servidor (content.json)');
+          console.log('[CMS] Conteúdo geral sincronizado com sucesso do servidor (content.json) para este dispositivo.');
         }
       }
     } catch (err) {
-      console.log('[CMS] Sem conexão com content.json no servidor, operando com dados locais:', err.message);
+      console.log('[CMS] Sem conexão com content.json no servidor, operando com cache local:', err.message);
     }
   }
 
-  function saveToStorage(notify = true) {
+  // Checagem ultraleve em segundo plano para refletir alterações feitas em outros dispositivos
+  async function checkServerForUpdates() {
+    if (isAdminMode) return;
+    const isAnyModalOpen = !!document.querySelector('.modal-backdrop.open, .modal-backdrop.active');
+    if (isAnyModalOpen) return;
+
     try {
-      siteData.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
-      saveContentToServer(siteData);
-      if (notify) {
-        showToast('Alterações salvas e sincronizadas com sucesso!', 'success');
+      const res = await fetch('/api/content-version?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const info = await res.json();
+        if (info && info.mtime) {
+          if (lastKnownServerMtime === 0) {
+            lastKnownServerMtime = info.mtime;
+            return;
+          }
+          if (info.mtime !== lastKnownServerMtime) {
+            console.log('[CMS] Modificação detectada no servidor! Sincronizando conteúdo entre dispositivos...');
+            lastKnownServerMtime = info.mtime;
+            await syncContentFromServer();
+          }
+        }
+      } else {
+        // Fallback caso /api/content-version não esteja respondendo
+        await syncContentFromServer();
       }
     } catch (e) {
-      console.error('Erro ao salvar no LocalStorage:', e);
-      showToast('Erro ao salvar dados localmente.', 'warning');
+      // Offline ou desconectado temporariamente
     }
+  }
+
+  async function saveToStorage(notify = true) {
+    siteData.updatedAt = new Date().toISOString();
+
+    // 1. Persistência Principal e Obrigatória no Servidor (content.json no disco)
+    let serverOk = false;
+    try {
+      serverOk = await saveContentToServer(siteData);
+    } catch (err) {
+      console.warn('[CMS] Erro na requisição para salvar no servidor:', err);
+    }
+
+    // 2. Persistência de Cache Local (LocalStorage) com tratamento seguro de Quota
+    let localOk = false;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+      localOk = true;
+    } catch (e) {
+      console.warn('[CMS] LocalStorage atingiu o limite de cota de 5MB do navegador. O conteúdo foi persistido no servidor (content.json).', e);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+        localOk = true;
+      } catch (innerErr) {
+        // Ignora erro de cache local secundário pois o servidor já gravou no disco
+      }
+    }
+
+    if (notify) {
+      if (serverOk || localOk) {
+        showToast('Alterações salvas e sincronizadas com sucesso!', 'success');
+      } else {
+        showToast('Erro ao salvar alterações no servidor.', 'warning');
+      }
+    }
+
+    return serverOk || localOk;
   }
 
   function resetToDefault() {
@@ -221,6 +347,9 @@
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
     const next = current === 'dark' ? 'light' : 'dark';
     applyTheme(next);
+    if (isAdminAuthenticated) {
+      saveToStorage(false);
+    }
     showToast(`Tema alterado para modo ${next === 'dark' ? 'escuro' : 'claro'}.`, 'info');
   }
 
@@ -492,6 +621,15 @@
     renderBrandLogo(); // Atualiza selo de edição na logomarca
   }
 
+  let inlineSaveDebounceTimer = null;
+
+  function handleInlineBlur() {
+    clearTimeout(inlineSaveDebounceTimer);
+    if (isAdminAuthenticated) {
+      saveToStorage(false);
+    }
+  }
+
   function enableInlineEditing() {
     const editables = document.querySelectorAll('[data-bind]');
     editables.forEach(el => {
@@ -501,6 +639,8 @@
       // Remove listeners antigos para evitar duplicidade
       el.removeEventListener('input', handleInlineInput);
       el.addEventListener('input', handleInlineInput);
+      el.removeEventListener('blur', handleInlineBlur);
+      el.addEventListener('blur', handleInlineBlur);
     });
   }
 
@@ -509,6 +649,7 @@
     editables.forEach(el => {
       el.removeAttribute('contenteditable');
       el.removeEventListener('input', handleInlineInput);
+      el.removeEventListener('blur', handleInlineBlur);
     });
   }
 
@@ -519,8 +660,19 @@
 
     const value = target.innerText.trim();
     setDeepValue(siteData, path, value);
-    // Sincroniza em segundo plano sem incomodar o usuário com toast a cada tecla
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+
+    // Cache local imediato
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
+    } catch (err) {}
+
+    // Sincronização automática transparente com o servidor (content.json) com debounce de 800ms
+    clearTimeout(inlineSaveDebounceTimer);
+    inlineSaveDebounceTimer = setTimeout(() => {
+      if (isAdminAuthenticated) {
+        saveToStorage(false);
+      }
+    }, 800);
   }
 
   // ==========================================================================
@@ -828,17 +980,18 @@
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const dataUrl = e.target.result;
+    showToast('Processando e otimizando logotipo...', 'info');
+    compressImageFile(file, 600, 300, 0.88).then(dataUrl => {
       const urlInput = document.getElementById('brand-logo-url-input');
       if (urlInput) urlInput.value = dataUrl;
       setBrandType('image');
       updateBrandLivePreview();
       inspectAndDisplayLogoDimensions(dataUrl);
       showToast('Logotipo carregado com sucesso! Verifique as dimensões e clique em "Salvar".', 'success');
-    };
-    reader.readAsDataURL(file);
+    }).catch(err => {
+      console.error('Erro ao processar logotipo:', err);
+      showToast('Erro ao processar arquivo de imagem do logotipo.', 'warning');
+    });
   };
 
   window.clearLogoImage = function () {
@@ -863,7 +1016,7 @@
     showToast('Modelo vetorial oficial aplicado à pré-visualização!', 'info');
   };
 
-  function saveBrandFromForm() {
+  async function saveBrandFromForm() {
     const brandObj = {
       logoType: currentEditingBrandType,
       monogramText: document.getElementById('brand-monogram-text-input')?.value.trim() || 'TF',
@@ -888,7 +1041,7 @@
     siteData.navbar.logoHeight = brandObj.logoImageHeight;
     siteData.navbar.logoMode = brandObj.logoType === 'image' ? (brandObj.showName ? 'icon-text' : 'full') : 'default';
 
-    saveToStorage(true);
+    await saveToStorage(true);
     renderBrandLogo();
     renderStaticBinds();
     closeBrandEditorModal();
@@ -1112,16 +1265,16 @@
   // OPERAÇÕES DE SISTEMAS (CRUD)
   // ==========================================================================
 
-  function deleteSystem(id) {
+  async function deleteSystem(id) {
     if (!confirm('Deseja realmente remover este sistema do catálogo do site?')) return;
     
     siteData.systemsSection.items = siteData.systemsSection.items.filter(s => s.id !== id);
-    saveToStorage(false);
+    await saveToStorage(false);
     renderSystems();
     showToast('Sistema removido com sucesso!', 'info');
   }
 
-  function addNewSystemPrompt() {
+  async function addNewSystemPrompt() {
     const title = prompt('Digite o Nome do Novo Sistema (ex: Gestão de Frotas & Rastreamento):');
     if (!title || !title.trim()) return;
 
@@ -1147,7 +1300,7 @@
     };
 
     siteData.systemsSection.items.push(newSystem);
-    saveToStorage(false);
+    await saveToStorage(false);
     renderSystems();
     showToast(`Sistema "${title}" adicionado com sucesso!`, 'success');
   }
@@ -1180,9 +1333,78 @@
           <span>🖼️</span> Imagem do Módulo (Exibida entre os textos no Modal de Detalhes)
         </div>
 
+        <!-- Caixa de Orientação Oficial de Dimensões e Proporção (Padrão Dash Solutions) -->
+        <div class="system-guide-box" id="system-dimensions-guide">
+          <div class="system-guide-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <div class="system-guide-title">Guia de Tamanho &amp; Proporção Recomendados</div>
+            <span class="system-guide-badge">Padrão Recomendado</span>
+          </div>
+
+          <div class="system-guide-grid">
+            <!-- Card 1: Widescreen 16:9 (Ideal) -->
+            <div class="system-guide-card highlight">
+              <div class="system-card-top">
+                <span class="system-card-name">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                  </svg>
+                  Proporção 16:9 (Widescreen)
+                </span>
+                <span class="system-card-tag">Padrão Ideal</span>
+              </div>
+              <div class="system-guide-dim">1200 × 675 px <span>ou 800 × 450 px</span></div>
+              <p>Formato panorâmico retangular. Preenche com perfeição o card e o modal de detalhes, preservando a harmonia da interface sem cortes nem faixas pretas.</p>
+            </div>
+
+            <!-- Card 2: Formatos e Resolução -->
+            <div class="system-guide-card">
+              <div class="system-card-top">
+                <span class="system-card-name">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                  Formatos Aceitos &amp; Qualidade
+                </span>
+                <span class="system-card-tag">Alta Nitidez</span>
+              </div>
+              <div class="system-guide-dim">PNG / WebP <span>ou SVG</span></div>
+              <p><strong>PNG ou WebP:</strong> ideal para capturas de telas do ERP e dashboards com gráficos nítidos. <strong>SVG:</strong> para ilustrações e esquemas vetoriais com nitidez infinita.</p>
+            </div>
+          </div>
+
+          <div class="system-guide-tips">
+            <div class="system-guide-tip-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <span><strong>Resolução Mínima Recomendada:</strong> Utilize imagens com no mínimo <strong>800px de largura</strong> e <strong>450px de altura</strong> para que textos, menus e números do print fiquem 100% legíveis em monitores Full HD, 4K e celulares.</span>
+            </div>
+            <div class="system-guide-tip-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 22 22 22"></polygon>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <span><strong>Evite Imagens Verticais:</strong> Formatos em pé (retrato) criam barras pretas laterais ou empurram o conteúdo para baixo. Prefira sempre proporções horizontais (16:9 ou 16:10).</span>
+            </div>
+          </div>
+        </div>
+
         <div class="edit-img-preview-box">
           <img id="edit-sys-img-preview" src="${currentImg}" alt="Visualização da Imagem">
         </div>
+
+        <!-- Feedback Automático das Dimensões Detectadas da Imagem -->
+        <div id="edit-sys-img-dimensions-feedback" class="system-dim-feedback" style="display: none;"></div>
 
         <div class="edit-img-controls-row">
           <label class="btn-upload-file">
@@ -1193,6 +1415,21 @@
           <button type="button" class="btn-admin" id="btn-reset-sys-img" title="Restaurar ilustração padrão deste sistema">
             ↺ Restaurar Imagem Padrão
           </button>
+        </div>
+
+        <!-- Opções de Enquadramento da Imagem (Sem Cortes vs Cover) -->
+        <div class="form-group" style="margin-bottom: 14px; background: rgba(0, 0, 0, 0.25); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+          <label class="form-label" style="margin-bottom: 8px;">Enquadramento no Modal:</label>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8125rem; color: #fff;">
+              <input type="radio" name="edit-sys-img-fit" value="contain" ${(!item.imageFit || item.imageFit === 'contain') ? 'checked' : ''}>
+              <span>🔍 <strong>Ajustar Imagem Inteira (Sem Cortes)</strong> - Padrão</span>
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8125rem; color: var(--text-secondary);">
+              <input type="radio" name="edit-sys-img-fit" value="cover" ${item.imageFit === 'cover' ? 'checked' : ''}>
+              <span>🖼️ Preencher Todo o Espaço (Cover)</span>
+            </label>
+          </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
@@ -1282,6 +1519,27 @@
     const btnApplyUrl = document.getElementById('btn-apply-sys-url');
     const btnResetImg = document.getElementById('btn-reset-sys-img');
 
+    // Inicializar classe de fit do preview
+    if (previewImg && item.imageFit === 'cover') {
+      previewImg.classList.add('fit-cover');
+    }
+
+    const fitRadios = bodyEl.querySelectorAll('input[name="edit-sys-img-fit"]');
+    fitRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (previewImg) {
+          if (radio.value === 'cover') {
+            previewImg.classList.add('fit-cover');
+          } else {
+            previewImg.classList.remove('fit-cover');
+          }
+        }
+      });
+    });
+
+    // Inspecionar e exibir dimensões da imagem atual
+    inspectAndDisplaySystemImageDimensions(currentImg);
+
     if (fileInput) {
       fileInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
@@ -1290,14 +1548,16 @@
             showToast('Por favor selecione um arquivo de imagem válido (PNG, JPG, SVG, WebP)', 'warning');
             return;
           }
-          const reader = new FileReader();
-          reader.onload = function(evt) {
-            const dataUrl = evt.target.result;
+          showToast('Otimizando imagem para alta resolução e melhor desempenho...', 'info');
+          compressImageFile(file, 1200, 675, 0.85).then(dataUrl => {
             if (previewImg) previewImg.src = dataUrl;
             if (urlInput) urlInput.value = dataUrl;
-            showToast('Imagem carregada com sucesso!', 'success');
-          };
-          reader.readAsDataURL(file);
+            inspectAndDisplaySystemImageDimensions(dataUrl);
+            showToast('Imagem carregada e pronta para salvar!', 'success');
+          }).catch(err => {
+            console.error('Erro ao processar imagem:', err);
+            showToast('Erro ao processar arquivo de imagem.', 'warning');
+          });
         }
       });
     }
@@ -1307,7 +1567,18 @@
         const val = urlInput.value.trim();
         if (val && previewImg) {
           previewImg.src = val;
+          inspectAndDisplaySystemImageDimensions(val);
           showToast('URL da imagem aplicada ao preview!', 'info');
+        }
+      });
+    }
+
+    if (urlInput) {
+      urlInput.addEventListener('change', () => {
+        const val = urlInput.value.trim();
+        if (val && previewImg) {
+          previewImg.src = val;
+          inspectAndDisplaySystemImageDimensions(val);
         }
       });
     }
@@ -1317,6 +1588,7 @@
         const defaultImg = getSystemImage({ id: item.id });
         if (previewImg) previewImg.src = defaultImg;
         if (urlInput) urlInput.value = defaultImg;
+        inspectAndDisplaySystemImageDimensions(defaultImg);
         showToast('Imagem restaurada para a ilustração padrão!', 'info');
       });
     }
@@ -1329,6 +1601,7 @@
         if (url) {
           if (previewImg) previewImg.src = url;
           if (urlInput) urlInput.value = url;
+          inspectAndDisplaySystemImageDimensions(url);
           presetBtns.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         }
@@ -1337,6 +1610,124 @@
 
     modal.classList.add('open');
   }
+
+  window.inspectAndDisplaySystemImageDimensions = function (url) {
+    const feedbackEl = document.getElementById('edit-sys-img-dimensions-feedback');
+    if (!feedbackEl) return;
+
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      feedbackEl.style.display = 'none';
+      feedbackEl.innerHTML = '';
+      return;
+    }
+
+    const testImg = new Image();
+    testImg.onload = function () {
+      const w = testImg.naturalWidth;
+      const h = testImg.naturalHeight;
+      const isSvg = url.includes('image/svg') || url.toLowerCase().endsWith('.svg');
+
+      feedbackEl.style.display = 'flex';
+
+      if (w === 0 || h === 0) {
+        if (isSvg) {
+          feedbackEl.className = 'system-dim-feedback good';
+          feedbackEl.innerHTML = `
+            <div class="system-dim-feedback-info">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="9 11 12 14 22 4"></polyline>
+              </svg>
+              <div>
+                <div><strong>Formato Vetorial (SVG):</strong> Nitidez infinita em qualquer resolução.</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Ilustração vetorial pronta para qualquer densidade de tela.</div>
+              </div>
+            </div>
+            <span class="system-dim-status-tag good">Vetor SVG</span>
+          `;
+        } else {
+          feedbackEl.style.display = 'none';
+        }
+        return;
+      }
+
+      const ratioNum = w / h;
+      const ratioStr = ratioNum.toFixed(2);
+      let ratioLabel = 'Horizontal';
+      const is169 = Math.abs(ratioNum - 16 / 9) <= 0.22;
+      const is1610 = Math.abs(ratioNum - 16 / 10) <= 0.15;
+      const isSquare = Math.abs(w - h) <= Math.max(w, h) * 0.1;
+
+      if (isSquare) {
+        ratioLabel = 'Quadrado (1:1)';
+      } else if (w < h) {
+        ratioLabel = 'Vertical (Retrato)';
+      } else if (is169) {
+        ratioLabel = 'Widescreen (16:9)';
+      } else if (is1610) {
+        ratioLabel = 'Panorâmico (16:10)';
+      } else if (ratioNum >= 2.2) {
+        ratioLabel = 'Ultra-wide';
+      }
+
+      let isWarning = false;
+      let statusText = 'Dimensões Ideais (16:9)';
+      let tip = 'Proporção retangular perfeita para o modal de detalhes e os cards.';
+
+      if (isSvg) {
+        statusText = 'Vetor SVG';
+        tip = 'Vetor SVG com nitidez infinita em qualquer resolução.';
+      } else if (w < 450 || h < 260) {
+        isWarning = true;
+        statusText = 'Atenção: Baixa Resolução';
+        tip = `A imagem possui apenas ${w}×${h}px. Pode perder nitidez em telas de alta resolução. Recomendamos mínimo de 800×450px.`;
+      } else if (w < h) {
+        isWarning = true;
+        statusText = 'Orientação Vertical';
+        tip = 'Imagens verticais deixam espaços pretos ou são cortadas no modal. Recomendamos imagens horizontais (16:9).';
+      } else if (is169 || is1610) {
+        statusText = 'Dimensões Ideais (16:9)';
+        tip = 'Proporção panorâmica excelente! Ocupará o modal com perfeita harmonia visual e nitidez.';
+      } else if (ratioNum >= 1.3 && ratioNum <= 2.2) {
+        statusText = 'Boa Proporção Horizontal';
+        tip = 'A imagem preencherá bem o espaço visual do módulo.';
+      } else {
+        statusText = 'Compatível';
+        tip = 'A imagem será ajustada proporcionalmente ao container.';
+      }
+
+      feedbackEl.className = `system-dim-feedback ${isWarning ? 'warning' : 'good'}`;
+      feedbackEl.innerHTML = `
+        <div class="system-dim-feedback-info">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+            ${isWarning ? `
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            ` : `
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="9 11 12 14 22 4"></polyline>
+            `}
+          </svg>
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong>Dimensões Detectadas:</strong>
+              <span class="dim-coords">${w} × ${h} px</span>
+              <span class="dim-ratio-pill">(${ratioLabel} &bull; ${ratioStr}:1)</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:3px;">${tip}</div>
+          </div>
+        </div>
+        <span class="system-dim-status-tag ${isWarning ? 'warning' : 'good'}">${statusText}</span>
+      `;
+    };
+
+    testImg.onerror = function () {
+      feedbackEl.style.display = 'none';
+    };
+
+    testImg.src = url;
+  };
 
   function closeEditSystemModal() {
     const modal = document.getElementById('edit-system-card-modal');
@@ -1350,7 +1741,7 @@
   window.deleteSystem = deleteSystem;
   window.addNewSystemPrompt = addNewSystemPrompt;
 
-  function saveEditedSystem() {
+  async function saveEditedSystem() {
     if (!currentEditingSystemId) return;
     const item = siteData.systemsSection.items.find(s => s.id === currentEditingSystemId);
     if (!item) return;
@@ -1380,12 +1771,15 @@
     if (descriptionEl) item.description = descriptionEl.value.trim();
     if (imgUrlEl && imgUrlEl.value.trim()) item.image = imgUrlEl.value.trim();
 
+    const fitRadio = document.querySelector('input[name="edit-sys-img-fit"]:checked');
+    item.imageFit = fitRadio ? fitRadio.value : 'contain';
+
     if (featuresEl) {
       const lines = featuresEl.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       if (lines.length > 0) item.features = lines;
     }
 
-    saveToStorage(true);
+    await saveToStorage(false);
     renderSystems();
 
     // Se o modal de detalhes estiver aberto, atualiza-o imediatamente
@@ -1395,7 +1789,7 @@
     }
 
     closeEditSystemModal();
-    showToast(`Módulo "${item.title}" atualizado com sucesso!`, 'success');
+    showToast(`Módulo "${item.title}" atualizado e salvo com sucesso!`, 'success');
   }
 
   function openSystemDetail(id) {
@@ -1421,9 +1815,9 @@
         ${item.description || item.summary}
       </p>
 
-      <!-- IMAGEM ENTRE OS DOIS BLOCOS DE TEXTO -->
+      <!-- IMAGEM ENTRE OS DOIS BLOCOS DE TEXTO (16:9 PROPORCIONAL SEM CORTES) -->
       <div class="system-detail-image-box">
-        <img src="${currentImg}" alt="${item.title}" class="system-detail-img" id="detail-img-${item.id}">
+        <img src="${currentImg}" alt="${item.title}" class="system-detail-img ${item.imageFit === 'cover' ? 'fit-cover' : ''}" id="detail-img-${item.id}">
         ${isAdminMode ? `
           <div class="system-detail-img-admin-bar">
             <button type="button" class="btn-admin-edit-img" onclick="window.totumApp.openEditSystemModal('${item.id}')" title="Alterar imagem e textos deste módulo">
@@ -1723,7 +2117,7 @@
     body.innerHTML = contentHtml;
   }
 
-  function saveCMSModalData() {
+  async function saveCMSModalData() {
     // Coleta valores da aba atual e atualiza siteData
     const announcement = document.getElementById('cms-topbar-announcement');
     if (announcement) siteData.topBar.announcement = announcement.value;
@@ -1816,7 +2210,7 @@
     const footerCopy = document.getElementById('cms-footer-copyright');
     if (footerCopy) siteData.footer.copyright = footerCopy.value;
 
-    saveToStorage(true);
+    await saveToStorage(true);
     renderAll();
     closeCMSModal();
   }
@@ -2077,7 +2471,7 @@ ${message ? `Observações adicionais: ${message}` : ''}`;
       });
     }
 
-    // Toggle do menu mobile hambúrguer
+    // Controle e navegação dos links do menu
     const mobileBtn = document.getElementById('mobile-menu-btn');
     const navLinksEl = document.getElementById('nav-links-list') || document.querySelector('.nav-links');
     if (mobileBtn && navLinksEl) {
@@ -2090,6 +2484,38 @@ ${message ? `Observações adicionais: ${message}` : ''}`;
           navLinksEl.classList.remove('mobile-open');
         }
       });
+      // Fechar menu mobile e atualizar active ao clicar no link
+      navLinksEl.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function() {
+          navLinksEl.classList.remove('mobile-open');
+          navLinksEl.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+          this.classList.add('active');
+        });
+      });
+
+      // ScrollSpy suave para sincronizar o link ativo com a rolagem da página
+      const sections = ['hero', 'sistemas', 'diferenciais', 'solucoes', 'empresa', 'contato']
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
+      window.addEventListener('scroll', () => {
+        const scrollPos = window.scrollY + 140;
+        let currentId = '';
+        sections.forEach(sec => {
+          if (scrollPos >= sec.offsetTop) {
+            currentId = sec.id;
+          }
+        });
+        if (currentId) {
+          navLinksEl.querySelectorAll('.nav-link').forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === '#' + currentId) {
+              link.classList.add('active');
+            } else {
+              link.classList.remove('active');
+            }
+          });
+        }
+      }, { passive: true });
     }
 
     const btnCloseEditSys = document.getElementById('btn-close-edit-system');
@@ -2216,23 +2642,32 @@ ${message ? `Observações adicionais: ${message}` : ''}`;
   // INICIALIZAÇÃO NO DOM READY
   // ==========================================================================
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     loadInitialData();
-    syncContentFromServer();
     renderAll();
     bindEvents();
 
-    // Sincronização multi-dispositivo em segundo plano (quando a aba ganha foco ou a cada 15s)
+    // Sincroniza imediatamente com o servidor para garantir que todos os dispositivos
+    // vejam os dados mais recentes do content.json
+    await syncContentFromServer();
+
+    // Sincronização multi-dispositivo em tempo real:
+    // 1. Quando a janela/aba recebe foco
     window.addEventListener('focus', () => {
-      if (!isAdminMode) syncContentFromServer();
+      checkServerForUpdates();
     });
 
-    setInterval(() => {
-      const isAnyModalOpen = !!document.querySelector('.modal-backdrop.open, .modal-backdrop.active');
-      if (!isAdminMode && !isAnyModalOpen) {
-        syncContentFromServer();
+    // 2. Quando o usuário desbloqueia o celular ou retorna ao navegador (visibilitychange)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkServerForUpdates();
       }
-    }, 15000);
+    });
+
+    // 3. Polling ultraleve em segundo plano a cada 5 segundos (consome apenas ~40 bytes por checagem)
+    setInterval(() => {
+      checkServerForUpdates();
+    }, 5000);
 
 
     // Expõe API para chamadas globais (onclick nos botões dinâmicos)

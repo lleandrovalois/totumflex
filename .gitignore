@@ -18,3 +18,7 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Temporary scripts
+scratch/
+

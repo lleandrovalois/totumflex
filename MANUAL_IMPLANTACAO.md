@@ -153,8 +153,11 @@ O Totum Flex possui um **Gerenciador de Conteúdo Visual Integrado (CMS)**.
 **1. O site precisa de suporte a PHP ou banco de dados MySQL?**  
 Não. O Totum Flex foi concebido com tecnologia estática inteligente, o que reduz custos de hospedagem a praticamente zero e elimina necessidade de atualizações complexas de banco de dados.
 
-**2. As edições feitas no painel por um computador aparecem para os clientes?**  
-Quando os dados forem consolidados pelo administrador, recomenda-se clicar em **"Exportar JSON"** e salvar o arquivo como a base oficial (`data.js`) para que todos os visitantes visualizem as novas informações por padrão.
+**2. As edições feitas no painel por um computador aparecem para todos os usuários em diferentes dispositivos?**  
+**SIM!** O Totum Flex conta com persistência multi-dispositivo centralizada via `content.json` gerenciada pelo `server.js` (no mesmo padrão do Dash Solutions):
+* **Persistência Centralizada:** Todas as alterações salvas por um administrador (imagens, textos, logos, cores e novos módulos) são enviadas imediatamente para a API do servidor (`/api/save-content`), que grava o arquivo `content.json` no disco.
+* **Reflexo Imediato:** Qualquer visitante ou dispositivo (celulares, tablets, computadores em rede local ou na internet) que acessar o endereço do site receberá os dados oficiais diretamente do servidor.
+* **Sincronização em Tempo Real:** Dispositivos que já estiverem com a página aberta detectam alterações em segundo plano via polling ultraleve (`/api/content-version`) a cada 5 segundos ou imediatamente ao desbloquear a tela/focar a aba, atualizando as imagens e textos sem necessidade de recarregar a página manualmente.
 
 **3. O site é responsivo para dispositivos móveis?**  
 Sim, a interface é 100% responsiva e adapta-se automaticamente a smartphones, tablets, notebooks e monitores ultrawide.

@@ -1,0 +1,12 @@
+services:
+  totumflex:
+    build: .
+    container_name: totumflex
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    volumes:
+      - ./content.json:/app/content.json
+    environment:
+      - TZ=America/Sao_Paulo
+      - PORT=3456

@@ -75,6 +75,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // API Endpoint: Obter Versão/Timestamp do Conteúdo (Polling Ultraleve para Multi-Dispositivo)
+  if (req.method === 'GET' && reqUrl === '/api/content-version') {
+    const contentFilePath = path.join(DIR, 'content.json');
+    if (fs.existsSync(contentFilePath)) {
+      try {
+        const stats = fs.statSync(contentFilePath);
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        });
+        res.end(JSON.stringify({
+          mtime: stats.mtimeMs,
+          size: stats.size
+        }));
+        return;
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: e.message }));
+        return;
+      }
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'content.json not found' }));
+      return;
+    }
+  }
+
   // API Endpoint: Obter Conteúdo Sincronizado
   if (req.method === 'GET' && (reqUrl === '/api/content' || reqUrl === '/content.json')) {
     const contentFilePath = path.join(DIR, 'content.json');
